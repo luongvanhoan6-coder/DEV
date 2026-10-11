@@ -1,0 +1,12 @@
+{
+  "name": "ong-vang-erp",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Ong Vàng – Phần mềm quản trị lợi nhuận và dòng tiền (bản DEMO chạy trên trình duyệt)",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "check": "for f in $(find js tests -name '*.js' -o -name '*.mjs'); do node --check $f || exit 1; done",
+    "start": "npx serve ."
+  }
+}

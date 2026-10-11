@@ -1,0 +1,16 @@
+import { buildSeed } from '../js/core/seed.js';
+import { balance, daysOverdue, agingSummary, orderTotals, inventoryPosition, DEFAULT_AGING } from '../js/core/calc.js';
+import { today } from '../js/core/dates.js';
+import { sum } from '../js/core/format.js';
+const db = await buildSeed(async (p, s) => p + s);
+const T = today();
+const ar = db.invoices.filter(i => i.direction === 'AR'), ap = db.invoices.filter(i => i.direction === 'AP');
+console.log('orders', db.salesOrders.length, 'AR', sum(ar, balance) / 1e9, 'AP', sum(ap, balance) / 1e9);
+console.log(agingSummary(ar, T));
+const cur = T.slice(0, 7);
+const mo = db.salesOrders.filter(o => o.date.startsWith(cur) && ['delivered', 'completed'].includes(o.status));
+const tot = mo.map(orderTotals); console.log('rev this month', sum(tot, t => t.net) / 1e9, 'gp', sum(tot, t => t.grossProfit) / 1e9);
+const bal = sum(db.cashAccounts, a => a.opening) + sum(db.cashTx, t => t.direction === 'in' ? t.amount : -t.amount); console.log('cash', bal / 1e9);
+const pos = inventoryPosition(db.invTx, 'avg'); console.log('inv value', sum(Object.values(pos), p => p.value) / 1e9, 'neg', Object.entries(pos).filter(([, p]) => p.qty < 0).length, 'prods', db.products.length);
+console.log('json KB', JSON.stringify(db).length / 1024);
+const top = Object.entries(pos).map(([id,p])=>[id,db.products.find(x=>x.id===id).name,Math.round(p.qty),Math.round(p.value/1e6)]).sort((a,b)=>b[3]-a[3]).slice(0,6); console.log(top);

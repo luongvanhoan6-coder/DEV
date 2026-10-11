@@ -1,0 +1,18 @@
+import { h } from './dom.js';
+import { state } from '../core/store.js';
+import { can } from '../core/rbac.js';
+import { fmt, fmtShort } from '../core/format.js';
+export const ph = (title, sub, right) => h('div', { class: 'ph' }, h('div', null, h('h1', null, title), sub ? h('p', null, sub) : null), right ? h('div', { class: 'row' }, right) : null);
+export const user = () => state.user;
+export const allow = (mod, act = 'view') => can(state.user, mod, act);
+export const money = (n) => h('span', { class: 'num' }, fmt(n));
+export const scopeOf = () => (state.user.segments === 'all' ? null : state.user.segments);
+export const seg = (id) => state.db.segments.find((s) => s.id === id)?.name || id || '–';
+export const cust = (id) => state.db.customers.find((s) => s.id === id)?.name || id;
+export const sup = (id) => state.db.suppliers.find((s) => s.id === id)?.name || id;
+export const prod = (id) => state.db.products.find((s) => s.id === id);
+export const usr = (id) => state.db.users.find((u) => u.id === id)?.name || id;
+export const wh = (id) => state.db.warehouses.find((w) => w.id === id)?.name || id;
+export const select = (name, opts, val, onchange, label) => h('select', { name, 'aria-label': label || name, onchange: (e) => onchange(e.target.value) }, opts.map(([v, l]) => h('option', { value: v, selected: String(v) === String(val) }, l)));
+export const errToast = (toast) => (e) => toast(e.message || 'Có lỗi xảy ra', 'err');
+export { fmt, fmtShort };

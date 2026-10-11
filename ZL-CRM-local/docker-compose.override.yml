@@ -1,0 +1,7 @@
+# MinIO đã gỡ image minio/minio & minio/mc khỏi Docker Hub.
+# Dùng bản build cộng đồng tương thích (pgsty) để docker compose chạy được.
+services:
+  minio:
+    image: pgsty/minio:latest
+  minio-init:
+    image: pgsty/mc:latest

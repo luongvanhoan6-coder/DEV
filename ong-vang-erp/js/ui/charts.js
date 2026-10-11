@@ -2,16 +2,21 @@ import { h } from './dom.js';
 import { fmtShort } from '../core/format.js';
 const NS = 'http://www.w3.org/2000/svg';
 const S = (tag, attrs = {}, ...kids) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); kids.flat().forEach((c) => c != null && e.append(c.nodeType ? c : document.createTextNode(c))); return e; };
-const nice = (max) => { if (max <= 0) return [1, 4]; const p = Math.pow(10, Math.floor(Math.log10(max / 4))); const step = [1, 2, 2.5, 5, 10].map((m) => m * p).find((s) => max / s <= 5) || p * 10; return [step * Math.ceil(max / step), step]; };
+// Thang đo đẹp theo cả khoảng [min,max] (hỗ trợ giá trị âm) – tránh vòng lặp vô hạn khi dữ liệu âm lớn / dương nhỏ
+const nice = (max) => { if (!(max > 0)) return [1, 0.25]; const p = Math.pow(10, Math.floor(Math.log10(max / 4))); const step = [1, 2, 2.5, 5, 10].map((m) => m * p).find((x) => max / x <= 5) || p * 10; return [step * Math.ceil(max / step), step]; };
+function scale(min, max) {
+  min = Math.min(min, 0); max = Math.max(max, 0); if (max === 0 && min === 0) return { lo: 0, top: 1, step: 0.25 };
+  const [, step] = nice(max - min); return { lo: Math.floor(min / step) * step, top: Math.ceil(max / step) * step, step };
+}
 const yFmt = (v, unit) => (unit === 'tỷ' ? (v / 1e9).toLocaleString('vi-VN', { maximumFractionDigits: 1 }) : unit === 'triệu' ? (v / 1e6).toLocaleString('vi-VN', { maximumFractionDigits: 0 }) : v.toLocaleString('vi-VN'));
 const legend = (items) => h('div', { class: 'legend' }, items.map((i) => h('span', null, h('i', { style: { background: i.color } }), i.name)));
 // Cột + đường (tuỳ chọn). unit: 'tỷ' | 'triệu' | ''. Mọi cột có <title> tooltip.
 export function barChart({ labels, bars, line, unit = 'tỷ', height = 230, stacked = false, ariaLabel = 'Biểu đồ' }) {
   const W = 640, H = height, m = { l: 44, r: 12, t: 12, b: 26 }, iw = W - m.l - m.r, ih = H - m.t - m.b;
   const all = [...bars.flatMap((b) => b.data), ...(line ? line.data : [])], mx = stacked ? Math.max(...labels.map((_, i) => bars.reduce((a, b) => a + (b.data[i] || 0), 0))) : Math.max(...all, 0), mn = Math.min(0, ...all);
-  const [top, step] = nice(Math.max(mx, 1)); const lo = mn < 0 ? -nice(-mn)[0] : 0; const y = (v) => m.t + ih - ((v - lo) / (top - lo)) * ih;
+  const { lo, top, step } = scale(mn, mx); const y = (v) => m.t + ih - ((v - lo) / (top - lo)) * ih;
   const svg = S('svg', { viewBox: `0 0 ${W} ${H}`, class: 'chart', role: 'img', 'aria-label': ariaLabel });
-  for (let v = lo; v <= top + 1e-6; v += step) { svg.append(S('line', { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v), class: 'grid' }), S('text', { x: m.l - 6, y: y(v) + 4, class: 'axis', 'text-anchor': 'end' }, yFmt(v, unit))); }
+  for (let k = 0, v = lo; v <= top + step / 1e3 && k < 40; k++, v = lo + step * k) { svg.append(S('line', { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v), class: 'grid' }), S('text', { x: m.l - 6, y: y(v) + 4, class: 'axis', 'text-anchor': 'end' }, yFmt(v, unit))); }
   const gw = iw / labels.length, bw = stacked ? Math.min(30, gw * 0.6) : Math.min(24, (gw * 0.7) / bars.length);
   labels.forEach((lb, i) => {
     const cx = m.l + gw * i + gw / 2; svg.append(S('text', { x: cx, y: H - 8, class: 'axis', 'text-anchor': 'middle' }, lb));
@@ -23,9 +28,9 @@ export function barChart({ labels, bars, line, unit = 'tỷ', height = 230, stac
 }
 export function lineChart({ labels, series, unit = '', height = 200, ariaLabel = 'Biểu đồ đường' }) {
   const W = 640, H = height, m = { l: 40, r: 12, t: 12, b: 26 }, iw = W - m.l - m.r, ih = H - m.t - m.b;
-  const mx = Math.max(...series.flatMap((s) => s.data), 1); const [top, step] = nice(mx); const y = (v) => m.t + ih - (v / top) * ih;
+  const all = series.flatMap((s) => s.data), { lo, top, step } = scale(Math.min(...all, 0), Math.max(...all, 0)); const y = (v) => m.t + ih - ((v - lo) / (top - lo)) * ih;
   const svg = S('svg', { viewBox: `0 0 ${W} ${H}`, class: 'chart', role: 'img', 'aria-label': ariaLabel });
-  for (let v = 0; v <= top + 1e-6; v += step) svg.append(S('line', { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v), class: 'grid' }), S('text', { x: m.l - 6, y: y(v) + 4, class: 'axis', 'text-anchor': 'end' }, +v.toFixed(2)));
+  for (let k = 0, v = lo; v <= top + step / 1e3 && k < 40; k++, v = lo + step * k) svg.append(S('line', { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v), class: 'grid' }), S('text', { x: m.l - 6, y: y(v) + 4, class: 'axis', 'text-anchor': 'end' }, +v.toFixed(2)));
   const gw = iw / Math.max(labels.length - 1, 1);
   labels.forEach((lb, i) => svg.append(S('text', { x: m.l + gw * i, y: H - 8, class: 'axis', 'text-anchor': 'middle' }, lb)));
   series.forEach((s) => { const pts = s.data.map((v, i) => [m.l + gw * i, y(v)]); svg.append(S('polyline', { points: pts.map((p) => p.join(',')).join(' '), fill: 'none', stroke: s.color, 'stroke-width': 2.4 })); pts.forEach((p, i) => svg.append(S('circle', { cx: p[0], cy: p[1], r: 3.5, fill: s.color }, S('title', {}, `${labels[i]} – ${s.name}: ${s.data[i]} ${unit}`)))); });

@@ -106,7 +106,7 @@ export function saveOrder(input) {
   assertOpen(input.date);
   const lines = input.lines.map((l, i) => {
     const p = byId('products', l.productId); need(p, `Dòng ${i + 1}: chọn sản phẩm`);
-    return { productId: p.id, qty: num(l.qty, `Dòng ${i + 1}: số lượng`, { min: 0.0001 }), price: num(l.price, `Dòng ${i + 1}: đơn giá`, { min: 0 }), discount: num((l.discount || 0) / 100, `Dòng ${i + 1}: chiết khấu`, { min: 0, max: 1 }), cost: stockPosition()[p.id]?.avg || p.stdCost };
+    return { productId: p.id, qty: num(l.qty, `Dòng ${i + 1}: số lượng`, { min: 0.0001 }), price: num(l.price, `Dòng ${i + 1}: đơn giá`, { min: 0 }), discount: (need(Number.isFinite(Number(l.discount || 0)) && Number(l.discount || 0) >= 0 && Number(l.discount || 0) <= 100, `Dòng ${i + 1}: chiết khấu phải từ 0 đến 100%`), Number(l.discount || 0) / 100), cost: stockPosition()[p.id]?.avg || p.stdCost };
   });
   dedupe('order' + input.customerId + input.date + JSON.stringify(lines));
   const o = { id: genOrderId(input.date), date: input.date, customerId: input.customerId, segmentId: byId('products', lines[0].productId).segmentId, ownerId: me().id, lines, returns: num(input.returns || 0, 'Hàng trả lại', { min: 0 }), directCost: num(input.directCost || 0, 'Chi phí trực tiếp', { min: 0 }), status: input.quote ? 'quote' : 'processing', whId: input.whId || 'K1', note: input.note || '' };

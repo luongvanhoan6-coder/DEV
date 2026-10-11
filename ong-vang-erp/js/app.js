@@ -44,7 +44,7 @@ async function renderPage() {
 
 function shell() {
   const u = state.user, pend = pendingFor(u).length;
-  const side = h('aside', { class: 'side' }, h('a', { class: 'logo', href: '#/dashboard' }, h('svg', { width: 40, height: 40, viewBox: '0 0 48 48', html: '<g fill="#e6b422"><path d="M24 4c5 5 6 11 0 17-6-6-5-12 0-17z"/><path d="M8 14c7-1 13 2 14 9-7 1-13-2-14-9z"/><path d="M40 14c-7-1-13 2-14 9 7 1 13-2 14-9z"/><path d="M23 25h2v17h-2z"/><path d="M24 36c-6 0-10-3-12-7 6-1 10 1 12 7zM24 36c6 0 10-3 12-7-6-1-10 1-12 7z"/></g>' }), h('span', null, h('b', null, 'ONG VÀNG'), h('small', null, 'KẾT NỐI GIÁ TRỊ NÔNG NGHIỆP'))),
+  const side = h('aside', { class: 'side' }, h('a', { class: 'logo', href: '#/dashboard' }, h('span', { class: 'logo-ic', html: '<svg width="40" height="40" viewBox="0 0 48 48"><g fill="#e6b422"><path d="M24 4c5 5 6 11 0 17-6-6-5-12 0-17z"/><path d="M8 14c7-1 13 2 14 9-7 1-13-2-14-9z"/><path d="M40 14c-7-1-13 2-14 9 7 1 13-2 14-9z"/><path d="M23 25h2v17h-2z"/><path d="M24 36c-6 0-10-3-12-7 6-1 10 1 12 7zM24 36c6 0 10-3 12-7-6-1-10 1-12 7z"/></g></svg>' }), h('span', null, h('b', null, 'ONG VÀNG'), h('small', null, 'KẾT NỐI GIÁ TRỊ NÔNG NGHIỆP'))),
     h('nav', { 'aria-label': 'Điều hướng chính' }, PAGES.filter((p) => can(u, p[3], 'view')).map(([id, ic, label]) => h('a', { class: 'nav-i', href: '#/' + id, 'data-p': id }, h('i', null, ic), label, id === 'approvals' ? h('em', { class: 'dot', id: 'pend-nav', hidden: !pend }, pend) : null))),
     h('div', { class: 'side-foot' }, h('span', { class: 'demo' }, 'DỮ LIỆU DEMO'), h('small', null, 'Chưa phải số liệu thực')));
   const results = h('div', { class: 'gs-res', hidden: true });

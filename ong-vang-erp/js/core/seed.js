@@ -171,7 +171,7 @@ export async function buildSeed(hash) {
       if (!lines.length) continue;
       const mkey = date.slice(2, 4) + date.slice(5, 7);
       used[mkey] = (used[mkey] || 0) + 1;
-      const o = { id: 'DH' + mkey + pad(used[mkey]), date, customerId: cust.id, segmentId: seg.id, ownerId: 'u_kinhdoanh', lines, returns: 0, directCost: Math.round(target * 0.012), status: 'delivered', whId: seg.id === 'CF' ? 'K3' : pick(['K1', 'K2']), note: '' };
+      const o = { id: 'DH' + mkey + pad(used[mkey]), date, customerId: cust.id, segmentId: seg.id, ownerId: 'u_kinhdoanh', lines, returns: 0, directCost: Math.round(target * 0.012), status: 'delivered', whId: seg.id === 'CF' ? 'K3' : 'K1', note: '' };
       // một số đơn bị giảm giá mạnh => biên thấp
       if (R() < 0.04) o.lines.forEach((l) => (l.discount = 0.12));
       db.salesOrders.push(o);
@@ -261,6 +261,9 @@ export async function buildSeed(hash) {
     if (d == null) return;
     db.invTx.push({ id: 'IX' + pad(db.invTx.length + 1, 6), date: addDays(T, -60), type: 'in', product: p.id, wh: 'K1', qty: Math.max(5, Math.round((demand[p.id] || 100) / 24)) + Math.ceil(p.minQty / 3), unitCost: p.stdCost, ref: 'NK-DEMO', reason: 'Nhập lô DEMO', seq: 3, lot: 'L-EXP-' + p.sku, expiry: addDays(T, d) });
   });
+  // Chuyển kho DEMO: một phần hàng từ Kho Lâm Hà sang Kho Đức Trọng
+  const posT = (await import('./calc.js')).inventoryPosition(db.invTx, 'avg');
+  db.products.filter((p, i) => i % 4 === 0 && p.segmentId !== 'CF' && (posT[p.id]?.byWh.K1 || 0) > 40).forEach((p) => db.invTx.push({ id: 'IX' + pad(db.invTx.length + 1, 6), date: addDays(T, -5), type: 'transfer', product: p.id, wh: 'K1', toWh: 'K2', qty: Math.floor(posT[p.id].byWh.K1 * 0.15), reason: 'Chuyển kho DEMO', ref: 'CK-DEMO', seq: 4 }));
   // đơn mua đang chờ duyệt
   db.purchaseOrders.push({ id: 'PO' + pad(++poSeq, 4), date: T, supplierId: 'NCC001', segmentId: 'PB', lines: [{ productId: 'P002', qty: 800, cost: db.products[1].stdCost }], status: 'pending_approval', whId: 'K1', requesterId: 'u_thumua', note: 'Nhập bổ sung mùa vụ' });
   const po = db.purchaseOrders.at(-1);

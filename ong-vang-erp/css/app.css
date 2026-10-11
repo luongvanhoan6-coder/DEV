@@ -73,3 +73,24 @@ select,input,textarea{font-family:inherit;font-size:13px;color:var(--ink)}
 @media(max-width:860px){.side{position:fixed;left:-250px;z-index:60;transition:left .2s;width:240px}.nav-open .side{left:0}.nav-open .scrim{display:block;position:fixed;inset:0;background:#0006;z-index:50}.burger{display:block}.main{padding:14px}.top{padding:10px 14px}.me>div:nth-child(2){display:none}.g2,.g4,.g5,.g6{grid-template-columns:1fr 1fr}.form-grid{grid-template-columns:1fr}.login{grid-template-columns:1fr}.login-hero{padding:30px;min-height:200px}.gs{width:auto;flex:1}}
 @media(max-width:520px){.g2,.g4,.g5,.g6{grid-template-columns:1fr}.cost-box{grid-template-columns:1fr}}
 @media print{.side,.top,.foot,.btn,.tabs,.dt-bar,.dt-pg{display:none!important}.main{padding:0}.card{box-shadow:none;break-inside:avoid}}
+/* ===== Popup TRỢ LÝ XINH ĐẸP ===== */
+.ag-root{position:fixed;right:18px;bottom:18px;z-index:90;display:flex;flex-direction:column;align-items:flex-end;gap:10px}
+.ag-fab{display:flex;align-items:center;gap:8px;border:0;border-radius:99px;padding:6px 16px 6px 6px;background:linear-gradient(135deg,#ff7eb3,#f1b21c);color:#fff;font-weight:800;font-size:13px;letter-spacing:.3px;box-shadow:0 8px 24px #d6537f55;animation:agpulse 2.6s infinite}
+.ag-fab:hover{filter:brightness(1.05)}.ag-root.open .ag-fab{animation:none}
+@keyframes agpulse{0%,100%{box-shadow:0 8px 24px #d6537f55}50%{box-shadow:0 8px 32px #f1b21caa}}
+.ag-av{display:inline-block;width:38px;height:38px;border-radius:50%;overflow:hidden;background:#fff;flex:none;border:2px solid #fff}.ag-av.lg{width:44px;height:44px}
+.ag-panel{width:392px;max-width:calc(100vw - 24px);height:min(600px,calc(100vh - 110px));background:#fff;border-radius:18px;box-shadow:0 20px 60px #0004;display:flex;flex-direction:column;overflow:hidden;border:1px solid #f3d6e3}
+.ag-panel[hidden]{display:none}
+.ag-h{display:flex;align-items:center;gap:10px;padding:12px 14px;background:linear-gradient(135deg,#ff7eb3,#f1b21c);color:#fff}.ag-h b{display:block;font-size:14px;letter-spacing:.4px}.ag-h small{font-size:11px;opacity:.95}
+.ag-x{background:#ffffff33;border:0;color:#fff;border-radius:8px;width:30px;height:30px;font-size:14px}.ag-x:hover{background:#ffffff55}
+.ag-list{flex:1;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:10px;background:#fff8fb}
+.ag-msg{max-width:90%;padding:9px 13px;border-radius:16px;font-size:13px;line-height:1.5;word-wrap:break-word}.ag-msg p{margin:0}.ag-msg ul{margin:4px 0 4px 18px}.ag-sp{height:6px}
+.ag-msg.user{align-self:flex-end;background:linear-gradient(135deg,#0f5a2c,#1c7a42);color:#fff;border-bottom-right-radius:4px;white-space:pre-wrap}
+.ag-msg.bot{align-self:flex-start;background:#fff;border:1px solid #f3d6e3;border-bottom-left-radius:4px}.ag-msg.err{background:#fdeaea;border-color:#f5cfcf;color:#8d2323}
+.ag-dots i{display:inline-block;width:6px;height:6px;margin-right:3px;border-radius:50%;background:#e0558a;animation:agb 1s infinite}.ag-dots i:nth-child(2){animation-delay:.15s}.ag-dots i:nth-child(3){animation-delay:.3s}@keyframes agb{0%,60%,100%{transform:translateY(0);opacity:.5}30%{transform:translateY(-4px);opacity:1}}
+.ag-chips{display:flex;gap:6px;overflow-x:auto;padding:8px 12px;border-top:1px solid #f6e3ec;background:#fff;scrollbar-width:thin}.ag-chips .chip{white-space:nowrap;margin:0;border-color:#f3b6cf;color:#b03a6b}
+.ag-in{display:flex;gap:8px;padding:10px 12px;border-top:1px solid #f6e3ec;background:#fff;align-items:flex-end}.ag-in textarea{flex:1;border:1px solid #f0c9da;border-radius:14px;padding:9px 12px;resize:none;font:inherit;max-height:110px}.ag-in textarea:focus{outline:2px solid #f3a6c6}
+.ag-send{width:40px;height:40px;border-radius:50%;border:0;background:linear-gradient(135deg,#ff7eb3,#f1b21c);color:#fff;font-size:16px}.ag-send:disabled{opacity:.5}
+.ag-foot{font-size:10px;color:var(--mut);padding:0 14px 8px;background:#fff}
+@media(max-width:520px){.ag-root{right:10px;bottom:10px}.ag-fab-t{display:none}.ag-fab{padding:4px}.ag-panel{width:calc(100vw - 20px)}}
+@media print{.ag-root{display:none!important}}

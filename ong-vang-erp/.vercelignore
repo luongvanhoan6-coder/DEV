@@ -1,0 +1,7 @@
+# Trợ lý xinh đẹp chỉ chạy cục bộ – không đưa lên Vercel
+local/
+js/ui/agent.js
+js/core/snapshot.js
+tests/
+docs/
+node_modules/

@@ -16,6 +16,17 @@ node tests/smoke.mjs http://localhost:8080/ ./shots   # duyệt mọi trang theo
 ```
 Tài khoản demo (mật khẩu `demo123`): `admin@ongvang.demo` (Giám đốc), `ketoan@`, `kinhdoanh@`, `thumua@`, `kho@`, `quanlymang@` (chỉ mảng Phân bón & BVTV), `xem@`.
 
+## Trợ lý "TRỢ LÝ XINH ĐẸP" (chỉ chạy cục bộ, KHÔNG đưa lên Vercel)
+Popup chat ở góc phải dưới, tổng hợp thông tin toàn bộ phần mềm theo quyền của người đăng nhập, dùng **gói Claude của bạn qua Claude Code CLI**.
+```bash
+npm i -g @anthropic-ai/claude-code   # nếu chưa cài
+claude                               # đăng nhập 1 lần bằng gói Claude (Pro/Max)
+npm run local                        # mở http://localhost:8788  (PORT=8790 npm run local để đổi cổng)
+```
+- Chỉ hiện khi chạy bằng `npm run local`; trên bản tĩnh/Vercel popup tự ẩn (`.vercelignore` cũng loại `local/` và `js/ui/agent.js`).
+- Máy chủ chỉ nghe `127.0.0.1`, kiểm tra Host/Origin, chạy `claude -p` với **toàn bộ công cụ bị tắt** (chỉ trả lời văn bản), ở thư mục tạm, và **xóa `ANTHROPIC_API_KEY`** khỏi môi trường con để dùng gói đã đăng nhập.
+- Mỗi câu hỏi gửi kèm bản tóm tắt dữ liệu theo quyền (không gồm mật khẩu) tới Claude. Trợ lý chỉ tư vấn; không tự chuyển tiền/duyệt chi.
+
 ## Tính năng đã có
 Trang chủ (KPI, lọc kỳ/mảng/khách/sản phẩm/kho, drill-down) • Dòng tiền 13 tuần (3 kịch bản, giả định chỉnh được, số dư đầu, import sao kê, đối soát, so sánh dự báo–thực tế) •
 Công nợ phải thu (tuổi nợ, hạn mức, cam kết, nhắc nợ, ghi thu, nhiệm vụ) • Công nợ phải trả (đề nghị thanh toán → duyệt → ghi nhận, gợi ý ưu tiên) •

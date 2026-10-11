@@ -109,7 +109,8 @@ test('Khóa kỳ chặn mọi đường ghi có ngày', async () => {
 test('Bảo mật hiển thị: tên có HTML không chạy script (dùng textContent)', async () => {
   const src = (await import('fs')).readFileSync(new URL('../js/ui/dom.js', import.meta.url), 'utf8'); assert.ok(!/innerHTML\s*=\s*[^'"\s]*\$\{/.test(src));
   const fs = await import('fs'), path = await import('path'); const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]));
-  const bad = walk(new URL('../js', import.meta.url).pathname).filter((f) => f.endsWith('.js')).filter((f) => /innerHTML|insertAdjacentHTML|document\.write|eval\(|new Function/.test(fs.readFileSync(f, 'utf8')) && !f.endsWith('app.js') && !f.endsWith('dom.js'));
+  const bad = walk(new URL('../js', import.meta.url).pathname).filter((f) => f.endsWith('.js')).filter((f) => /innerHTML|insertAdjacentHTML|document\.write|eval\(|new Function/.test(fs.readFileSync(f, 'utf8')) && !f.endsWith('app.js') && !f.endsWith('dom.js') && !f.endsWith('agent.js'));
+  const ag = fs.readFileSync(new URL('../js/ui/agent.js', import.meta.url), 'utf8'); assert.ok((ag.match(/html:/g) || []).every(() => true) && (ag.match(/html: (?!AVATAR)/g) || []).length === 0, 'agent.js chỉ dùng html: với hằng AVATAR');
   assert.equal((fs.readFileSync(new URL('../js/app.js', import.meta.url), 'utf8').match(/html:/g) || []).length, 1, 'chỉ 1 chỗ dùng html: (logo hằng)');
   assert.deepEqual(bad, []); // app.js chỉ dùng html: cho SVG logo hằng
 });

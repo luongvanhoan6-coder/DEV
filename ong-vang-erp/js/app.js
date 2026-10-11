@@ -55,6 +55,7 @@ function shell() {
   mainEl = h('main', { class: 'main', id: 'main' });
   clear(app).append(h('div', { class: 'layout' }, side, h('div', { class: 'col' }, top, mainEl, h('footer', { class: 'foot' }, 'Ong Vàng – Báo cáo quản trị, không thay thế sổ sách/báo cáo pháp định. Dữ liệu DEMO.')), h('div', { class: 'scrim', onclick: () => document.body.classList.remove('nav-open') })));
   renderPage();
+  import('./ui/agent.js').then((m) => m.mountAgent()).catch(() => {}); // chỉ hiện khi chạy bằng máy chủ cục bộ
 }
 function globalSearch(q, box) {
   q = q.trim().toLowerCase(); box.replaceChildren(); if (q.length < 2) { box.hidden = true; return; }
@@ -77,7 +78,7 @@ function loginView() {
 let lastUser = undefined;
 async function boot() {
   await init();
-  const draw = () => { if (!state.user) { lastUser = null; loginView(); } else if (lastUser !== state.user.id) { lastUser = state.user.id; shell(); } };
+  const draw = () => { if (!state.user) { lastUser = null; import('./ui/agent.js').then((m) => m.unmountAgent()).catch(() => {}); loginView(); } else if (lastUser !== state.user.id) { lastUser = state.user.id; shell(); } };
   subscribe(() => { if (state.user?.id !== lastUser) draw(); });
   window.addEventListener('hashchange', () => state.user && renderPage());
   draw();

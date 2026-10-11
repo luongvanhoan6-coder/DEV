@@ -183,7 +183,7 @@ export async function buildSeed(hash) {
       const age = diffDays(T, date);
       const late = R() < 0.05 ? ri(20, 50) : 0;
       const pd = ri(1, Math.max(2, Math.ceil(cust.terms / 3))) + late;
-      if (age > pd) { const pdate = addDays(date, pd); inv.payments.push({ date: pdate, amount, by: 'u_ketoan' }); addCash(pdate, 'in', amount, 'Thu tiền bán hàng', inv.id, pick(['TK1', 'TK2', 'TK2'])); o.status = 'completed'; }
+      if (age > pd) { const pdate = addDays(date, pd); inv.payments.push({ date: pdate, amount, by: 'u_ketoan' }); addCash(pdate, 'in', amount, 'Thu tiền bán hàng', inv.id, 'TK2'); o.status = 'completed'; }
       else if (age > pd / 2 && R() < 0.3) { const part = Math.round(amount * 0.4); inv.payments.push({ date: addDays(date, 1), amount: part, by: 'u_ketoan' }); addCash(addDays(date, 1), 'in', part, 'Thu tiền bán hàng', inv.id, 'TK2'); }
       db.invoices.push(inv);
       lines.forEach((l) => db.invTx.push({ id: 'IX' + pad(db.invTx.length + 1, 6), date, type: 'out', product: l.productId, wh: o.whId, qty: l.qty, unitCost: l.cost, ref: o.id, reason: 'Bán hàng', seq: 5 }));
@@ -309,7 +309,7 @@ export async function buildSeed(hash) {
       if (date > T) continue;
       const amount = Math.round((6e6 + R() * 22e6) * (s.w / 15 + 0.5));
       db.expenses.push({ id: 'CP' + pad(++exSeq, 5), date, category: pick(catDirect), segmentId: s.id, scope: 'direct', amount, requesterId: 'u_ketoan', status: 'approved', note: 'Chi phí trực tiếp mảng ' + s.name });
-      addCash(date, 'out', amount, 'Chi phí trực tiếp', 'CP' + pad(exSeq, 5), 'TK1');
+      addCash(date, 'out', amount, 'Chi phí trực tiếp', 'CP' + pad(exSeq, 5), 'TK2');
     }
   }
   // Ngân sách
@@ -321,10 +321,13 @@ export async function buildSeed(hash) {
   }
   // Chi phí trực tiếp dùng nhiều danh mục => gộp danh mục "Chi phí trực tiếp" khi so ngân sách (xem queries)
   // Số dư tài khoản: khóa để tổng tiền hiện tại ≈ 3,8 tỷ (DEMO)
-  const net = db.cashTx.reduce((a, t) => a + (t.direction === 'in' ? t.amount : -t.amount), 0);
-  db.cashAccounts[1].opening = Math.round(3.8e9 - net - 0.15e9);
-  db.cashAccounts[0].opening = 0; db.cashAccounts[2].opening = 0;
+  // Chi ngoài kinh doanh DEMO (trả nợ gốc, đầu tư, chia lợi nhuận) để tiền không tăng phi thực tế
+  const byM = {}; db.cashTx.forEach((t) => { const k = monthKey(t.date); byM[k] = (byM[k] || 0) + (t.direction === 'in' ? t.amount : -t.amount); });
+  Object.entries(byM).sort().forEach(([k, v]) => { if (v > 0 && k < monthKey(T)) addCash(monthEnd(k), 'out', Math.round(v * 0.97), 'Trả nợ gốc, đầu tư & chia lợi nhuận (DEMO)', 'DEMO-' + k, 'TK2'); });
+  // Số dư đầu từng tài khoản: để số dư HIỆN TẠI = quỹ 0,35 tỷ + VCB 3,3 tỷ + Agribank 0,15 tỷ = 3,8 tỷ (DEMO)
   db.cashTx.push({ id: 'CT' + pad(++ctSeq, 5), date: addDays(T, -1), direction: 'in', amount: 150e6, category: 'Rút/gửi nội bộ', accountId: 'TK3', ref: 'DEMO', reconciledAt: null });
+  const netOf = (id) => db.cashTx.filter((t) => t.accountId === id).reduce((a, t) => a + (t.direction === 'in' ? t.amount : -t.amount), 0);
+  [['TK1', 0.35e9], ['TK2', 3.3e9], ['TK3', 0.15e9]].forEach(([id, target]) => { db.cashAccounts.find((a) => a.id === id).opening = Math.round(target - netOf(id)); });
 
   // ---- Thu mua cà phê theo lô ----
   db.coffeeLots = [];

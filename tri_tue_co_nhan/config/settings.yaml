@@ -38,13 +38,21 @@ voice:
   # manual      : bạn tự thu âm / tải tệp voice.mp3|voice.wav vào thư mục nháp của từng video
   # edge_tts    : giọng Microsoft Edge Read-Aloud (miễn phí, KHÔNG chính thức – xem docs/HUONG_DAN_GIONG_DOC.md)
   # google_cloud: Google Cloud Text-to-Speech (chính thức, có hạn mức miễn phí, cần GOOGLE_TTS_API_KEY)
-  provider: none
+  # gemini      : Gemini API – Google AI Studio (có hạn mức miễn phí, cần GEMINI_API_KEY)
+  provider: gemini
   edge_tts:
     voice: vi-VN-NamMinhNeural     # giọng nam trầm; giọng nữ: vi-VN-HoaiMyNeural
     rate: "-12%"
     pitch: "-4Hz"
     volume: "+0%"
     timeout_sec: 90                # hủy nếu dịch vụ không phản hồi
+  gemini:
+    model: gemini-2.5-flash-preview-tts   # đổi nếu Google ra tên mô hình TTS mới
+    voice_name: Charon                    # giọng trầm, rõ ràng; thử thêm: Gacrux, Algenib, Iapetus, Kore (nữ), Sulafat (nữ)
+    style_prompt: "Đọc bằng tiếng Việt, giọng trầm ấm, điềm đạm, chậm rãi, nghỉ tự nhiên sau mỗi câu:"
+    tempo: 1.0                            # <1 chậm hơn, >1 nhanh hơn (FFmpeg atempo, giữ cao độ)
+    timeout_sec: 120
+    max_retries: 3
   google_cloud:
     language_code: vi-VN
     voice_name: vi-VN-Neural2-D

@@ -88,3 +88,68 @@ def test_manual_voice_provider(project, tmp_path):
                     str(d / "voice.wav")], check=True)
     res = vg.generate_voice(project, SCRIPT, d, provider_name="manual")
     assert res and abs(res.duration - 3.0) < 0.2 and (d / "voice_meta.json").exists()
+
+
+class _Resp:
+    def __init__(self, status, payload):
+        self.status_code, self._payload = status, payload
+        self.text = str(payload)
+
+    def json(self):
+        return self._payload
+
+
+def _pcm_payload(seconds, rate=24000):
+    import base64
+    data = base64.b64encode(b"\x00\x00" * int(seconds * rate)).decode()
+    return {"candidates": [{"content": {"parts": [{"inlineData": {
+        "mimeType": f"audio/L16;codec=pcm;rate={rate}", "data": data}}]}}]}
+
+
+def test_gemini_not_configured_without_key(project, tmp_path, monkeypatch):
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+    ok, msg = vg.get_provider(project, "gemini").is_configured()
+    assert not ok and "aistudio" in msg
+    assert vg.generate_voice(project, SCRIPT, tmp_path / "g", provider_name="gemini") is None
+
+
+@requires_ffmpeg
+def test_gemini_writes_wav_and_keeps_key_out_of_url(project, tmp_path, monkeypatch):
+    import requests
+    monkeypatch.setenv("GEMINI_API_KEY", "AIzaTEST_KEY_123")
+    seen = {}
+
+    def fake_post(url, headers=None, json=None, timeout=None):
+        seen.update(url=url, headers=headers, body=json)
+        return _Resp(200, _pcm_payload(20.0))
+
+    monkeypatch.setattr(requests, "post", fake_post)
+    d = tmp_path / "g"
+    res = vg.generate_voice(project, SCRIPT, d, provider_name="gemini")
+    assert res and res.path.name == "voice.wav" and abs(res.duration - 20.0) < 0.1
+    assert "AIzaTEST" not in seen["url"] and seen["headers"]["x-goog-api-key"] == "AIzaTEST_KEY_123"
+    assert seen["body"]["generationConfig"]["responseModalities"] == ["AUDIO"]
+    assert SCRIPT in seen["body"]["contents"][0]["parts"][0]["text"]
+
+
+def test_gemini_errors_and_abnormal_duration(project, tmp_path, monkeypatch):
+    import requests
+    monkeypatch.setenv("GEMINI_API_KEY", "AIzaTEST_KEY_123")
+    project.settings["voice"]["gemini"]["max_retries"] = 0
+    monkeypatch.setattr(requests, "post", lambda *a, **k: _Resp(400, {"error": {"message": "API key not valid."}}))
+    try:
+        vg.generate_voice(project, SCRIPT, tmp_path / "e1", provider_name="gemini")
+    except vg.VoiceGenerationError as exc:
+        assert "API key not valid" in str(exc) and "GEMINI_API_KEY" in str(exc)
+    else:
+        raise AssertionError
+    # 120 giây cho ~55 từ -> nghi đọc cả lời hướng dẫn -> từ chối, không giữ tệp
+    monkeypatch.setattr(requests, "post", lambda *a, **k: _Resp(200, _pcm_payload(120.0)))
+    try:
+        vg.generate_voice(project, SCRIPT, tmp_path / "e2", provider_name="gemini")
+    except vg.VoiceGenerationError as exc:
+        assert "bất thường" in str(exc)
+    else:
+        raise AssertionError
+    assert not (tmp_path / "e2" / "voice.wav").exists()

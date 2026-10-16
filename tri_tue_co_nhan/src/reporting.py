@@ -47,6 +47,10 @@ def estimate_costs(ctx: Context, videos_per_day: int | None = None, chars_per_vi
                   "paid": True, "calls_per_month": per_month, "chars_per_month": chars,
                   "usd_month": round(tts_usd, 2), "vnd_month": round(tts_usd * rate, -3),
                   "note": "Nằm trong hạn mức miễn phí hằng tháng nếu số ký tự < hạn mức (cần tài khoản thanh toán Google Cloud)."})
+    items.append({"item": "Gemini API TTS", "enabled": ctx.cfg("voice.provider") == "gemini", "paid": False,
+                  "calls_per_month": per_month, "usd_month": 0, "vnd_month": 0,
+                  "note": "Gói miễn phí của Google AI Studio (giới hạn lượt/phút, lượt/ngày). Nếu chuyển gói trả phí: "
+                          "tính theo token, xem https://ai.google.dev/pricing – chưa đưa vào ước tính."})
     items.append({"item": "edge-tts", "enabled": ctx.cfg("voice.provider") == "edge_tts", "paid": False,
                   "usd_month": 0, "vnd_month": 0, "note": "Miễn phí nhưng không chính thức – có thể ngừng hoạt động bất kỳ lúc nào."})
     items.append({"item": "FFmpeg, Python, Pillow (dựng video)", "enabled": True, "paid": False, "usd_month": 0,

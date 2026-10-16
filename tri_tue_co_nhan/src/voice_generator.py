@@ -5,6 +5,7 @@ Nhà cung cấp hỗ trợ (voice.provider trong config/settings.yaml):
   manual       – bạn tự thu âm, đặt voice.mp3 / voice.wav / voice.m4a vào thư mục nháp của video.
   edge_tts     – Microsoft Edge Read-Aloud qua gói `edge-tts` (miễn phí, KHÔNG phải API chính thức).
   google_cloud – Google Cloud Text-to-Speech REST API (chính thức; cần GOOGLE_TTS_API_KEY).
+  gemini       – Gemini API (Google AI Studio) – mô hình TTS, có hạn mức miễn phí; cần GEMINI_API_KEY.
 
 Hệ thống không bao giờ tạo tệp âm thanh giả để thay cho giọng đọc.
 """
@@ -174,7 +175,123 @@ class GoogleCloudTTSProvider(VoiceProvider):
         return VoiceResult(out, dur, self.name)
 
 
-PROVIDERS = {p.name: p for p in (NoVoiceProvider, ManualVoiceProvider, EdgeTTSProvider, GoogleCloudTTSProvider)}
+GEMINI_HINTS = {
+    400: "kiểm tra GEMINI_API_KEY và tên model/giọng trong voice.gemini",
+    403: "khóa không có quyền dùng Gemini API hoặc khu vực không được hỗ trợ",
+    404: "tên model TTS không tồn tại – cập nhật voice.gemini.model",
+    429: "vượt hạn mức miễn phí – chờ vài phút hoặc chạy ít video hơn mỗi lần",
+}
+
+
+def _gemini_error(resp) -> str:
+    try:
+        msg = resp.json()["error"]["message"]
+    except (ValueError, KeyError, TypeError):
+        msg = resp.text[:200]
+    hint = GEMINI_HINTS.get(resp.status_code)
+    return f"{msg[:200]}" + (f" ({hint})" if hint else "")
+
+
+class GeminiTTSProvider(VoiceProvider):
+    """Gemini API (Google AI Studio) – mô hình TTS trả về PCM 16-bit, được ghi thành voice.wav.
+
+    Khóa đọc từ GEMINI_API_KEY (hoặc GOOGLE_API_KEY), gửi qua header – không nằm trong URL/nhật ký.
+    """
+    name = "gemini"
+    ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+
+    @staticmethod
+    def _key() -> str:
+        return os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY") or ""
+
+    def is_configured(self):
+        if not self._key():
+            return False, ("Chưa đặt GEMINI_API_KEY trong .env – lấy khóa miễn phí tại "
+                           "https://aistudio.google.com/apikey (xem docs/HUONG_DAN_GIONG_DOC.md)")
+        cfg = self.ctx.cfg("voice.gemini", {}) or {}
+        return True, f"Gemini TTS: model {cfg.get('model')}, giọng {cfg.get('voice_name')}."
+
+    def _request(self, text: str) -> tuple[bytes, int]:
+        import time
+
+        import requests
+        cfg = self.ctx.cfg("voice.gemini", {}) or {}
+        style = (cfg.get("style_prompt") or "").strip()
+        prompt = f"{style}\n\n{text}" if style else text
+        body = {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {
+                "responseModalities": ["AUDIO"],
+                "speechConfig": {"voiceConfig": {"prebuiltVoiceConfig": {"voiceName": cfg.get("voice_name", "Charon")}}},
+            },
+        }
+        url = self.ENDPOINT.format(model=cfg.get("model", "gemini-2.5-flash-preview-tts"))
+        attempts = int(cfg.get("max_retries", 3)) + 1
+        last = ""
+        for i in range(attempts):
+            try:
+                resp = requests.post(url, headers={"x-goog-api-key": self._key()}, json=body,
+                                     timeout=float(cfg.get("timeout_sec", 120)))
+            except requests.RequestException as exc:
+                last = f"Không kết nối được Gemini API: {exc.__class__.__name__}"
+            else:
+                if resp.status_code == 200:
+                    break
+                last = f"Gemini API lỗi HTTP {resp.status_code}: {_gemini_error(resp)}"
+                if resp.status_code not in (429, 500, 502, 503, 504):
+                    raise VoiceGenerationError(last)
+            if i < attempts - 1:
+                time.sleep(min(60, 10 * (i + 1)))  # hạn mức miễn phí giới hạn số lượt/phút
+        else:
+            raise VoiceGenerationError(last)
+        try:
+            part = resp.json()["candidates"][0]["content"]["parts"][0]["inlineData"]
+        except (KeyError, IndexError, ValueError) as exc:
+            raise VoiceGenerationError(f"Gemini không trả về âm thanh: {resp.text[:300]}") from exc
+        rate = 24000
+        m = re.search(r"rate=(\d+)", part.get("mimeType", ""))
+        if m:
+            rate = int(m.group(1))
+        return base64.b64decode(part["data"]), rate
+
+    def synthesize(self, text, out_dir):
+        ok, msg = self.is_configured()
+        if not ok:
+            raise VoiceNotConfigured(msg)
+        import wave
+
+        from .common import ffmpeg_bin, run_cmd, word_count
+        cfg = self.ctx.cfg("voice.gemini", {}) or {}
+        pcm, rate = self._request(text)
+        out = out_dir / "voice.wav"
+        with wave.open(str(out), "wb") as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(rate)
+            wf.writeframes(pcm)
+        tempo = float(cfg.get("tempo", 1.0))
+        if abs(tempo - 1.0) > 0.01 and ffmpeg_bin():  # chỉnh tốc độ, giữ nguyên cao độ
+            tmp = out_dir / "voice_tempo.wav"
+            res = run_cmd([ffmpeg_bin(), "-y", "-loglevel", "error", "-i", str(out),
+                           "-af", f"atempo={tempo}", str(tmp)], timeout=120)
+            if res.returncode == 0:
+                tmp.replace(out)
+        dur = media_duration(out) or len(pcm) / (2 * rate)
+        if dur < 1.0:
+            out.unlink(missing_ok=True)
+            raise VoiceGenerationError("Gemini trả về âm thanh quá ngắn")
+        # Phát hiện bất thường: đọc cả lời hướng dẫn phong cách, hoặc bỏ sót nội dung.
+        expected = word_count(text) / 2.6
+        if dur > expected * 2.2 or dur < expected * 0.4:
+            out.unlink(missing_ok=True)
+            raise VoiceGenerationError(
+                f"Độ dài giọng đọc bất thường ({dur:.1f}s, dự kiến ~{expected:.0f}s) – có thể đã đọc cả lời "
+                f"hướng dẫn hoặc bỏ sót câu. Hãy thử lại hoặc chỉnh voice.gemini.style_prompt.")
+        return VoiceResult(out, dur, self.name)
+
+
+PROVIDERS = {p.name: p for p in (NoVoiceProvider, ManualVoiceProvider, EdgeTTSProvider, GoogleCloudTTSProvider,
+                                 GeminiTTSProvider)}
 
 
 def get_provider(ctx: Context, name: str | None = None) -> VoiceProvider:

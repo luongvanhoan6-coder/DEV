@@ -126,7 +126,7 @@ class _RedactFilter(logging.Filter):
 def redact(text: str) -> str:
     """Che mọi chuỗi giống API key trước khi ghi nhật ký."""
     text = SECRET_PATTERN.sub("***REDACTED***", text)
-    for env_name in ("ANTHROPIC_API_KEY", "GOOGLE_TTS_API_KEY"):
+    for env_name in ("ANTHROPIC_API_KEY", "GOOGLE_TTS_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY"):
         val = os.environ.get(env_name)
         if val and len(val) > 6:
             text = text.replace(val, "***REDACTED***")

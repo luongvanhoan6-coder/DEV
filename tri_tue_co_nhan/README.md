@@ -40,8 +40,14 @@ môi trường. Chạy lại `python main.py doctor` bất cứ lúc nào để 
 
 ### Bước 4 – Cấu hình giọng đọc (khuyến nghị)
 
-Mặc định `voice.provider: none` – video có phụ đề + nhạc nền nhưng **chưa có giọng đọc** và sẽ không được duyệt.
-Xem [docs/HUONG_DAN_GIONG_DOC.md](docs/HUONG_DAN_GIONG_DOC.md) (tự thu âm / Google Cloud TTS / edge-tts), rồi:
+Mặc định `voice.provider: gemini`. Khi chưa có `GEMINI_API_KEY`, video có phụ đề + nhạc nền nhưng **chưa có giọng đọc** và sẽ không được duyệt.
+Cách nhanh nhất nếu bạn có tài khoản Google – **Gemini API (miễn phí trong hạn mức)**:
+
+1. Lấy khóa tại https://aistudio.google.com/apikey
+2. Điền vào `.env`: `GEMINI_API_KEY=...`
+3. Trong `config/settings.yaml`: `voice.provider: gemini`
+
+Các lựa chọn khác (tự thu âm / Google Cloud TTS / edge-tts): [docs/HUONG_DAN_GIONG_DOC.md](docs/HUONG_DAN_GIONG_DOC.md). Kiểm tra:
 
 ```bash
 python main.py voice test
@@ -186,6 +192,7 @@ python main.py cost
 | Nội dung từ CSV + mẫu | 0 đ | Mặc định |
 | Đăng/lên lịch bằng công cụ chính thức | 0 đ | Thủ công |
 | Giọng đọc: tự thu / edge-tts | 0 đ | edge-tts không chính thức |
+| Giọng đọc: Gemini API | 0 đ trong hạn mức miễn phí (hệ thống chỉ gọi ~5 lần/ngày) | Vượt hạn mức/gói trả phí: theo bảng giá Gemini API |
 | Giọng đọc: Google Cloud TTS | ~0 đ trong hạn mức miễn phí (150 video × ~240 ký tự ≈ 36.000 ký tự/tháng) | Cần tài khoản thanh toán |
 | Claude API viết lại lời đọc (tùy chọn) | ≈ 129.000 đ/tháng với `claude-opus-5-5` (ước tính 900 token vào + 1.500 token ra mỗi video) | Chỉ khi bật `content.provider: anthropic` |
 
@@ -206,7 +213,7 @@ python -m pytest -m "not slow"   # bỏ qua bài dựng video
 
 | Hạng mục | Trạng thái |
 |---|---|
-| Giọng đọc | Có sẵn giao diện 4 nhà cung cấp; **bạn cần chọn và cấu hình** (mặc định: chưa có giọng đọc). |
+| Giọng đọc | Có sẵn 5 nhà cung cấp (gồm Gemini); **bạn cần chọn và cấu hình** (mặc định: chưa có giọng đọc). |
 | Tài nguyên hình/nhạc | Chỉ có placeholder tự sinh; **bạn cần bổ sung tài nguyên có giấy phép**. |
 | Đăng bài tự động qua API | Chỉ có khung (`src/platforms/`), **chưa cài đặt, chưa kiểm chứng**; đăng thủ công bằng gói nội dung. |
 | Phê duyệt video | Thủ công (có chủ đích). |

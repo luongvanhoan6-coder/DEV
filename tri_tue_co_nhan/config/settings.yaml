@@ -39,6 +39,7 @@ voice:
   # edge_tts    : giọng Microsoft Edge Read-Aloud (miễn phí, KHÔNG chính thức – xem docs/HUONG_DAN_GIONG_DOC.md)
   # google_cloud: Google Cloud Text-to-Speech (chính thức, có hạn mức miễn phí, cần GOOGLE_TTS_API_KEY)
   # gemini      : Gemini API – Google AI Studio (có hạn mức miễn phí, cần GEMINI_API_KEY)
+  # piper       : Piper offline, giọng nữ vais1000 (python scripts/download_voice_models.py; pip install piper-tts)
   # espeak      : eSpeak-NG offline – giọng máy, chỉ để THỬ quy trình (không nên đăng)
   provider: gemini
   # Hồ sơ giọng: mỗi video có thể dùng giọng khác nhau (python main.py voice set ...).
@@ -61,6 +62,7 @@ voice:
       edge_tts: {voice: vi-VN-HoaiMyNeural, rate: "-8%", pitch: "-6Hz"}
       google_cloud: {voice_name: vi-VN-Neural2-A, pitch: -3.0}
       espeak: {voice: vi+linda, pitch: 42}     # ~182 Hz (đã đo)
+      piper: {pitch_semitones: -2.0}           # vais1000 ~242 Hz -> ~218 Hz (đã đo)
   edge_tts:
     voice: vi-VN-NamMinhNeural     # giọng nam trầm; giọng nữ: vi-VN-HoaiMyNeural
     rate: "-12%"
@@ -74,6 +76,14 @@ voice:
     tempo: 1.0                            # <1 chậm hơn, >1 nhanh hơn (FFmpeg atempo, giữ cao độ)
     timeout_sec: 120
     max_retries: 3
+  piper:
+    model: assets/voices/vi_VN-vais1000-medium/vi_VN-vais1000-medium.onnx   # giọng NỮ (chưa có giọng nam)
+    length_scale: 1.35        # >1 chậm hơn
+    sentence_silence: 0.5     # giây nghỉ giữa các câu
+    tempo: 0.9                # giãn thêm (rubberband, giữ âm sắc)
+    pitch_semitones: 0.0
+    credit: "Giọng đọc tổng hợp: Piper – vais1000 (dữ liệu VAIS-1000, CC BY 4.0)."   # tự chèn vào chú thích khi đăng
+    post_filter: "highpass=f=70,acompressor=threshold=-20dB:ratio=2.5:attack=15:release=250,loudnorm=I=-16:TP=-1.5"
   espeak:
     voice: vi
     pitch: 30         # 0–99, thấp = trầm

@@ -181,13 +181,18 @@ def cmd_voice(ctx, args):
             if len(names) != len(vids):
                 sys.exit(f"{ERR} Cần {len(vids)} hồ sơ (theo thứ tự video), nhận {len(names)}")
             pairs = list(zip([v["video_id"] for v in vids], names))
+            provs = [p.strip() or None for p in args.providers.split(",")] if args.providers else [None] * len(pairs)
+            if len(provs) != len(pairs):
+                sys.exit(f"{ERR} --providers cần {len(pairs)} giá trị")
         elif args.video_id and args.profile:
             pairs = [(args.video_id, args.profile)]
+            provs = [args.provider]
         else:
             sys.exit("Dùng --video-id <ID> --profile <hồ sơ>, hoặc --profiles p1,p2,...")
-        for vid, prof in pairs:
-            changed = set_voice_profile(ctx, vid, prof)
-            print(f"{OK} {vid}: {prof}" + ("" if changed else " (giữ nguyên, không cần dựng lại)"))
+        for (vid, prof), prov in zip(pairs, provs):
+            changed = set_voice_profile(ctx, vid, prof, prov)
+            print(f"{OK} {vid}: {prof}" + (f" / {prov}" if prov else "")
+                  + ("" if changed else " (giữ nguyên, không cần dựng lại)"))
         print(f"   Tạo lại giọng + dựng lại: python main.py daily --resume {rid}")
         return
     if args.vcmd == "test":
@@ -244,8 +249,9 @@ def cmd_quality(ctx, args):
 
 
 def cmd_daily(ctx, args):
-    if args.voice_provider:
+    if args.voice_provider:  # ghi đè cho mọi video của lần chạy này
         ctx.settings["voice"]["provider"] = args.voice_provider
+        ctx.settings["_voice_provider_override"] = args.voice_provider
     manifest = pipeline.run_daily(ctx, count=args.count, resume=args.resume, force=args.force,
                                   allow_reuse=args.allow_reuse)
     reporting.update_feedback_loop(ctx, manifest)
@@ -406,6 +412,8 @@ def build_parser() -> argparse.ArgumentParser:
     vset.add_argument("--video-id")
     vset.add_argument("--profile")
     vset.add_argument("--profiles", help="Danh sách theo thứ tự video, vd: nam_tram,nu_tram_am,nu_tram_am")
+    vset.add_argument("--provider", choices=list(voice_generator.PROVIDERS), help="Cách đọc riêng cho video này")
+    vset.add_argument("--providers", help="Cách đọc theo thứ tự video, vd: espeak,piper,piper")
     vt.add_argument("--text", default="Người biết đủ là người giàu. Thắng người là có sức, thắng mình mới là mạnh.")
     v.set_defaults(func=cmd_voice)
 

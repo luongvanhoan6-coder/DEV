@@ -5,6 +5,7 @@ Nhà cung cấp hỗ trợ (voice.provider trong config/settings.yaml):
   manual       – bạn tự thu âm, đặt voice.mp3 / voice.wav / voice.m4a vào thư mục nháp của video.
   edge_tts     – Microsoft Edge Read-Aloud qua gói `edge-tts` (miễn phí, KHÔNG phải API chính thức).
   google_cloud – Google Cloud Text-to-Speech REST API (chính thức; cần GOOGLE_TTS_API_KEY).
+  piper        – Piper/VITS offline (mô hình tải bằng scripts/download_voice_models.py).
   espeak       – eSpeak-NG offline (giọng máy, chỉ để thử nghiệm).
   gemini       – Gemini API (Google AI Studio) – mô hình TTS, có hạn mức miễn phí; cần GEMINI_API_KEY.
 
@@ -347,8 +348,66 @@ class EspeakProvider(VoiceProvider):
         return VoiceResult(out, dur, self.name)
 
 
+class PiperProvider(VoiceProvider):
+    """Piper (VITS, ONNX) – chạy offline, miễn phí. Mô hình tải bằng scripts/download_voice_models.py."""
+    name = "piper"
+
+    def _model(self) -> Path:
+        m = Path(self.cfg().get("model", ""))
+        return m if m.is_absolute() else self.ctx.path(str(m))
+
+    def is_configured(self):
+        try:
+            import piper  # noqa: F401
+        except ImportError:
+            return False, "Chưa cài piper-tts: pip install piper-tts"
+        model = self._model()
+        if not model.exists() or not Path(str(model) + ".json").exists():
+            return False, f"Chưa có mô hình {model.name}: python scripts/download_voice_models.py"
+        return True, f"Piper offline – mô hình {model.stem}."
+
+    def synthesize(self, text, out_dir):
+        ok, msg = self.is_configured()
+        if not ok:
+            raise VoiceNotConfigured(msg)
+        import sys
+
+        from .common import ffmpeg_bin, run_cmd
+        cfg = self.cfg()
+        raw = out_dir / "voice_raw.wav"
+        cmd = [sys.executable, "-m", "piper", "-m", str(self._model()), "-f", str(raw),
+               "--length-scale", str(cfg.get("length_scale", 1.0)),
+               "--sentence-silence", str(cfg.get("sentence_silence", 0.4))]
+        import subprocess
+        res = subprocess.run(cmd, input=text, capture_output=True, text=True, encoding="utf-8", timeout=300)
+        if res.returncode != 0 or not raw.exists():
+            raise VoiceGenerationError(f"Piper lỗi: {res.stderr.strip()[-300:]}")
+        if "Missing phoneme" in res.stderr:
+            self.ctx.logger.warning("Piper thiếu âm vị: %s", res.stderr.strip()[-200:])
+        out = out_dir / "voice.wav"
+        filters = []
+        tempo = float(cfg.get("tempo", 1.0))
+        semis = float(cfg.get("pitch_semitones", 0.0))
+        if abs(tempo - 1.0) > 0.01 or abs(semis) > 0.01:
+            filters.append(f"rubberband=tempo={tempo}:pitch={2 ** (semis / 12):.4f}:formant=preserved")
+        if cfg.get("post_filter"):
+            filters.append(cfg["post_filter"])
+        if filters and ffmpeg_bin():
+            r2 = run_cmd([ffmpeg_bin(), "-y", "-loglevel", "error", "-i", str(raw), "-af", ",".join(filters),
+                          "-ar", "48000", str(out)], timeout=180)
+            if r2.returncode != 0:
+                raise VoiceGenerationError(f"Hậu xử lý âm thanh lỗi: {r2.stderr.strip()[:200]}")
+            raw.unlink(missing_ok=True)
+        else:
+            raw.replace(out)
+        dur = media_duration(out)
+        if not dur or dur < 1.0:
+            raise VoiceGenerationError("Piper trả về âm thanh rỗng")
+        return VoiceResult(out, dur, self.name)
+
+
 PROVIDERS = {p.name: p for p in (NoVoiceProvider, ManualVoiceProvider, EdgeTTSProvider, GoogleCloudTTSProvider,
-                                 GeminiTTSProvider, EspeakProvider)}
+                                 GeminiTTSProvider, EspeakProvider, PiperProvider)}
 
 
 def get_provider(ctx: Context, name: str | None = None, profile: str | None = None) -> VoiceProvider:

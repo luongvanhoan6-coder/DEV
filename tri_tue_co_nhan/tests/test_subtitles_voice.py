@@ -1,4 +1,5 @@
 """5. Sinh phụ đề SRT · giao diện giọng đọc."""
+import io
 import subprocess
 
 from conftest import requires_ffmpeg
@@ -224,3 +225,48 @@ def test_changing_profile_regenerates_voice(project, tmp_path):
     b = vg.generate_voice(project, text, d, provider_name="espeak", profile="nu_tram_am")
     from src.common import read_json
     assert read_json(d / "voice_meta.json")["profile"] == "nu_tram_am" and b.path.exists()
+
+
+def test_piper_reports_missing_model(project):
+    project.settings["voice"]["piper"]["model"] = "assets/voices/khong_co/model.onnx"
+    ok, msg = vg.get_provider(project, "piper").is_configured()
+    assert not ok and ("download_voice_models" in msg or "piper-tts" in msg)
+
+
+@requires_ffmpeg
+def test_piper_real_model_if_downloaded(project, tmp_path):
+    from conftest import ROOT
+    model = ROOT / "assets" / "voices" / "vi_VN-vais1000-medium" / "vi_VN-vais1000-medium.onnx"
+    project.settings["voice"]["piper"]["model"] = str(model)
+    if not vg.get_provider(project, "piper").is_configured()[0]:
+        import pytest
+        pytest.skip("Chưa cài piper-tts hoặc chưa tải mô hình")
+    res = vg.generate_voice(project, "Người biết đủ là người giàu. Thắng mình mới là mạnh.", tmp_path / "pp",
+                            provider_name="piper", profile="nu_tram_am")
+    assert res and 2.0 < res.duration < 12.0 and res.path.name == "voice.wav"
+
+
+def test_download_script_rejects_tampered_file(monkeypatch, tmp_path):
+    import importlib.util
+    from conftest import ROOT
+    spec = importlib.util.spec_from_file_location("dvm", ROOT / "scripts" / "download_voice_models.py")
+    dvm = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(dvm)
+
+    class FakeResp(io.BytesIO):
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    monkeypatch.setattr(dvm.urllib.request, "urlopen", lambda *a, **k: FakeResp(b"tep bi thay doi"))
+    monkeypatch.setattr(dvm, "ROOT", tmp_path)
+    monkeypatch.setattr("sys.argv", ["x"])
+    try:
+        dvm.main()
+    except SystemExit as exc:
+        assert "SHA-256 không khớp" in str(exc)
+    else:
+        raise AssertionError
+    assert not (tmp_path / "assets" / "voices").exists()

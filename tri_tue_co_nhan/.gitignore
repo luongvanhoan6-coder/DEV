@@ -25,4 +25,5 @@ assets/backgrounds/*
 assets/music/*
 assets/fonts/*
 assets/logo/*
+assets/voices/*
 !assets/**/.gitkeep

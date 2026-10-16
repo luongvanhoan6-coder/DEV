@@ -10,5 +10,7 @@ pytest>=8.0
 # Tùy chọn – bỏ dấu # nếu dùng
 # edge-tts>=7.0      # voice.provider: edge_tts (miễn phí, không chính thức)
 # anthropic>=1.0     # content.provider: anthropic (tính phí)
+# piper-tts>=1.3     # voice.provider: piper (offline) – kèm: python scripts/download_voice_models.py
+# onnx>=1.16         # để script tải mô hình kiểm tra cấu trúc ONNX
 
 # Ngoài Python: cần cài FFmpeg (ffmpeg + ffprobe) – xem README.md

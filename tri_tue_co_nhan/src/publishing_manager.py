@@ -135,6 +135,9 @@ def package(ctx: Context, run_id: str | None = None, video_ids: list[str] | None
             _link_or_copy(mp4, pdir / video["file_name"])
             shutil.copy2(srt, pdir / "subtitles.srt")
             cap = platform_caption(content, pname, pconf)
+            credit = (ctx.cfg(f"voice.{voice_meta.get('provider')}.credit") or "") if voice_meta.get("file") else ""
+            if credit and credit not in cap["caption"]:  # ghi nguồn giọng đọc theo giấy phép (vd. CC BY 4.0)
+                cap["caption"] = f"{cap['caption']}\n\n{credit}"
             (pdir / "caption.txt").write_text(
                 (f"TIÊU ĐỀ:\n{cap['title']}\n\n" if cap["title"] else "") + f"CHÚ THÍCH:\n{cap['caption']}\n",
                 encoding="utf-8")

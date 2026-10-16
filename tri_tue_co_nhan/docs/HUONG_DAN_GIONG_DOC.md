@@ -21,6 +21,7 @@ Nghe thử tệp tạo ra trước khi sản xuất hàng loạt.
 | `google_cloud` – Google Cloud TTS | Có hạn mức miễn phí hằng tháng, vượt thì tính phí | Tốt (giọng Neural2/WaveNet `vi-VN`) | API chính thức | Cần tài khoản Google Cloud có thanh toán |
 | `gemini` – Gemini API (Google AI Studio) | Có hạn mức miễn phí (giới hạn lượt/phút, lượt/ngày); vượt thì tính phí theo bảng giá Gemini API | Tự nhiên, điều khiển phong cách bằng lời mô tả | API chính thức | Chỉ cần tài khoản Google + API key |
 | `edge_tts` – Microsoft Edge Read-Aloud | 0 đ | Tốt (`vi-VN-NamMinhNeural`, `vi-VN-HoaiMyNeural`) | **Không chính thức** – có thể ngừng bất cứ lúc nào; tự đánh giá điều khoản sử dụng trước khi dùng thương mại | `pip install edge-tts` |
+| `piper` – Piper vais1000 (offline) | 0 đ | Giọng NỮ tự nhiên, phổ thông (miền Bắc), đủ 6 thanh | Dữ liệu CC BY 4.0 – ghi nguồn; tinh chỉnh từ giọng lessac (tự đánh giá khi kiếm tiền) | `pip install piper-tts` + `python scripts/download_voice_models.py` |
 | `espeak` – eSpeak-NG (offline) | 0 đ | Giọng máy (robot), đúng 6 thanh điệu | Mã nguồn mở; **chỉ để thử quy trình** | `sudo apt install espeak-ng` |
 | `none` | 0 đ | – | – | Không có giọng đọc |
 
@@ -128,5 +129,29 @@ python main.py daily --count 3 --voice-provider espeak
 Giọng eSpeak nghe như robot – chỉ dùng để kiểm tra phụ đề, nhạc nền, bố cục. Đăng thật hãy dùng Gemini/Google
 Cloud/tự thu âm.
 
+## 5. Piper offline (`piper`) – giọng nữ, không cần Internet khi đọc
+
+```bash
+pip install piper-tts onnx
+python scripts/download_voice_models.py      # tải ~67 MB từ GitHub k2-fsa/sherpa-onnx + kiểm tra an toàn
+python main.py voice test --provider piper --profile nu_tram_am
+```
+
+Script tải mô hình: so khớp SHA-256 đã ghim, từ chối gói có đường dẫn nguy hiểm/liên kết/tệp thực thi, chỉ giữ
+3 tệp (.onnx, .onnx.json, MODEL_CARD), kiểm tra ONNX chỉ dùng toán tử chuẩn, kiểm tra đủ 6 ký hiệu thanh điệu,
+quét ClamAV nếu máy có cơ sở dữ liệu virus, và ghi giấy phép vào `assets/LICENSES.csv`.
+
+Ghi nguồn khi đăng (bắt buộc theo CC BY 4.0), ví dụ trong mô tả: *"Giọng đọc tổng hợp: Piper (vais1000, dữ liệu
+VAIS-1000 – CC BY 4.0)."* Chỉnh tốc độ/cao độ trong `voice.piper` (`length_scale`, `tempo`, `pitch_semitones`).
+**Chưa có giọng nam** chất lượng tương đương: dùng Gemini (Charon) hoặc tự thu âm cho video giọng nam.
+
+Dùng cách đọc khác nhau cho từng video:
+
+```bash
+python main.py voice set --run-id <RUN_ID> --profiles nam_tram,nu_tram_am,nu_tram_am --providers gemini,piper,piper
+python main.py daily --resume <RUN_ID>
+```
+
 Đã thử và **loại**: mô hình Piper `vi-vivos-x-low` – với phiên bản espeak-ng hiện tại, mô hình mất thanh hỏi, ngã,
-nặng, huyền ("ma", "mả", "mã", "mạ" đọc giống nhau) và giấy phép dữ liệu là CC BY-NC-SA (phi thương mại).
+nặng, huyền ("ma", "mả", "mã", "mạ" đọc giống nhau) và giấy phép dữ liệu là CC BY-NC-SA (phi thương mại);
+mô hình `vi_VN-25hours_single-low` – cũng thiếu ký hiệu thanh điệu và giấy phép dữ liệu "Unknown".

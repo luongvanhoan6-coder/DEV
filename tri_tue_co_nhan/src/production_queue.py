@@ -93,7 +93,7 @@ def load_publishing_log(ctx: Context) -> list[dict]:
     return read_csv(ctx.path("data", "publishing_log.csv"))
 
 
-def set_voice_profile(ctx: Context, video_id: str, profile: str) -> bool:
+def set_voice_profile(ctx: Context, video_id: str, profile: str, provider: str | None = None) -> bool:
     """Đổi giọng cho một video và đưa về trạng thái cần tạo lại giọng/phụ đề/video."""
     from .voice_generator import list_profiles
     if profile not in list_profiles(ctx):
@@ -104,9 +104,15 @@ def set_voice_profile(ctx: Context, video_id: str, profile: str) -> bool:
     if status_at_least(video["status"], "APPROVED"):
         raise ValueError(f"{video_id} đã được duyệt/đóng gói – hãy 'reject' trước khi đổi giọng.")
     content = load_content(ctx, video)
-    if content.get("voice_profile") == profile:
+    if provider is not None:
+        from .voice_generator import PROVIDERS
+        if provider not in PROVIDERS:
+            raise ValueError(f"Nhà cung cấp giọng không hợp lệ: {provider}")
+    if content.get("voice_profile") == profile and (provider is None or content.get("voice_provider") == provider):
         return False  # không đổi -> không cần dựng lại
     content["voice_profile"] = profile
+    if provider is not None:
+        content["voice_provider"] = provider
     save_content(ctx, content)
     update_status(ctx, video_id, "DRAFT", error="")
     return True

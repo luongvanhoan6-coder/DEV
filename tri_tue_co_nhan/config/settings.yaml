@@ -1,0 +1,128 @@
+# =============================================================
+# CẤU HÌNH CHÍNH – TRÍ TUỆ CỔ NHÂN – TƯ DUY AN LẠC
+# Không ghi API key / mật khẩu vào tệp này. Dùng tệp .env.
+# =============================================================
+
+project:
+  name: "Trí Tuệ Cổ Nhân – Tư Duy An Lạc"
+  channel_name: "Trí Tuệ Cổ Nhân"
+  channel_tagline: "Tư Duy An Lạc"
+  timezone: "Asia/Ho_Chi_Minh"
+  language: "vi"
+
+production:
+  videos_per_day: 5
+  # Chỉ những trạng thái nguồn này mới được đưa vào sản xuất.
+  # NEEDS_VERIFICATION luôn bị chặn.
+  allowed_source_statuses: [VERIFIED, SOURCE_CITED, TRADITIONAL, PARAPHRASE]
+  # Không dùng lại câu đã sản xuất, trừ khi người dùng bật --allow-reuse.
+  allow_reuse: false
+  # Xoay vòng chủ đề trong một lô để 5 video/ngày không trùng chủ đề.
+  rotate_topics: true
+
+content:
+  # template: chỉ dùng dữ liệu CSV + mẫu có sẵn (miễn phí, mặc định)
+  # anthropic: dùng Claude API để viết lại lời đọc/tiêu đề (tính phí, cần ANTHROPIC_API_KEY)
+  provider: template
+  anthropic:
+    model_env: ANTHROPIC_MODEL        # tên biến môi trường chứa model (tùy chọn)
+    default_model: claude-opus-5-5
+    effort: medium
+    max_tokens: 2000
+  voice_script_min_words: 35
+  voice_script_max_words: 75
+  title_max_chars: 90
+
+voice:
+  # none        : chưa cấu hình – vẫn tạo voice_script.txt + SRT, video không có giọng đọc
+  # manual      : bạn tự thu âm / tải tệp voice.mp3|voice.wav vào thư mục nháp của từng video
+  # edge_tts    : giọng Microsoft Edge Read-Aloud (miễn phí, KHÔNG chính thức – xem docs/HUONG_DAN_GIONG_DOC.md)
+  # google_cloud: Google Cloud Text-to-Speech (chính thức, có hạn mức miễn phí, cần GOOGLE_TTS_API_KEY)
+  provider: none
+  edge_tts:
+    voice: vi-VN-NamMinhNeural     # giọng nam trầm; giọng nữ: vi-VN-HoaiMyNeural
+    rate: "-12%"
+    pitch: "-4Hz"
+    volume: "+0%"
+    timeout_sec: 90                # hủy nếu dịch vụ không phản hồi
+  google_cloud:
+    language_code: vi-VN
+    voice_name: vi-VN-Neural2-D
+    speaking_rate: 0.88
+    pitch: -2.0
+  # Tốc độ ước tính (từ/giây) khi chưa có âm thanh, dùng để căn phụ đề.
+  words_per_second: 2.4
+
+subtitles:
+  max_chars_per_line: 26
+  max_lines_per_cue: 2
+  sentence_pause_sec: 0.35
+  min_cue_duration_sec: 0.9
+
+video:
+  width: 1080
+  height: 1920
+  fps: 30
+  min_duration_sec: 15
+  max_duration_sec: 30
+  head_padding_sec: 1.2
+  tail_padding_sec: 1.8
+  crf: 21
+  preset: medium
+  audio_bitrate: 160k
+  music_volume: 0.14          # nhạc nền nhỏ hơn giọng đọc
+  music_volume_no_voice: 0.35 # khi chưa có giọng đọc
+  voice_volume: 1.0
+  fade_sec: 0.8
+  # Thứ tự xoay vòng mẫu video (xem config/video_template.yaml)
+  template_rotation: [suong_mai, mat_ho, truc_lam]
+  logo_file: assets/logo/logo.png   # nếu không có, hiển thị tên kênh bằng chữ
+  fonts:
+    # Ưu tiên phông trong assets/fonts. Nếu không có, tự dò phông hệ thống hỗ trợ tiếng Việt.
+    quote: ""
+    subtitle: ""
+
+quality:
+  duration_tolerance_sec: 0.6
+  max_av_drift_sec: 0.5
+  require_voice_for_approval: true   # video chưa có giọng đọc sẽ không được duyệt (trừ khi --allow-no-voice)
+  min_file_size_kb: 100
+
+publishing:
+  platforms:
+    facebook_reels:
+      label: "Facebook Reels"
+      title_max: 255
+      caption_max: 2200
+      max_hashtags: 10
+      extra_hashtags: ["#reels"]
+    tiktok:
+      label: "TikTok"
+      title_max: 0
+      caption_max: 2200
+      max_hashtags: 6
+      extra_hashtags: ["#xuhuong"]
+    youtube_shorts:
+      label: "YouTube Shorts"
+      title_max: 100
+      caption_max: 5000
+      max_hashtags: 8
+      extra_hashtags: ["#shorts"]
+  # Khung giờ GỢI Ý (Asia/Ho_Chi_Minh). Hãy điều chỉnh theo số liệu thực tế của kênh.
+  schedule_slots: ["06:30", "11:30", "17:30", "20:00", "21:30"]
+
+costs:
+  # Giá tham khảo – LUÔN đối chiếu bảng giá chính thức trước khi bật dịch vụ tính phí.
+  usd_to_vnd: 25500
+  anthropic_price_per_mtok:      # USD / 1 triệu token (input, output)
+    claude-opus-5-5: [4.0, 20.0]
+    claude-sonnet-5-5: [2.0, 10.0]
+    claude-haiku-5-5: [0.10, 0.50]
+  anthropic_est_tokens_per_video: [900, 1500]   # ước tính input, output (gồm suy luận)
+  google_tts:
+    free_chars_per_month: 1000000   # hạn mức miễn phí giọng Neural2/WaveNet (tham khảo)
+    usd_per_million_chars: 16.0
+
+google_sheets:
+  # Đường dẫn CSV công khai (File > Share > Publish to web > CSV) đặt trong .env: GSHEET_CSV_URL
+  csv_url_env: GSHEET_CSV_URL

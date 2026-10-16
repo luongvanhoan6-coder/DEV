@@ -1,0 +1,14 @@
+# Bắt buộc
+PyYAML>=6.0
+python-dotenv>=1.0
+Pillow>=10.0
+numpy>=1.26
+requests>=2.31
+tzdata>=2024.1   # cần cho múi giờ trên Windows
+pytest>=8.0
+
+# Tùy chọn – bỏ dấu # nếu dùng
+# edge-tts>=7.0      # voice.provider: edge_tts (miễn phí, không chính thức)
+# anthropic>=1.0     # content.provider: anthropic (tính phí)
+
+# Ngoài Python: cần cài FFmpeg (ffmpeg + ffprobe) – xem README.md

@@ -1,0 +1,28 @@
+# Bí mật
+.env
+*.key
+credentials*.json
+client_secret*.json
+token*.json
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+
+# Sản phẩm sinh ra (nặng, tạo lại được)
+output/**/*
+!output/**/.gitkeep
+reports/runs/*.json
+reports/quality_reports/*
+!reports/quality_reports/.gitkeep
+reports/logs/
+
+# Tài nguyên media (tự bổ sung, có thể có bản quyền riêng)
+assets/backgrounds/*
+assets/music/*
+assets/fonts/*
+assets/logo/*
+!assets/**/.gitkeep

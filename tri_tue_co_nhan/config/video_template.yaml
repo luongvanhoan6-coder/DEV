@@ -1,0 +1,93 @@
+# =============================================================
+# MẪU VIDEO – ít nhất 3 biến thể để các video không giống hệt nhau
+# motion   : zoom_in | zoom_out | pan_right | pan_left
+# position : vị trí khối câu nói (tỉ lệ chiều cao, 0 = trên cùng)
+# colors   : mã hex (#RRGGBB)
+# =============================================================
+
+templates:
+  suong_mai:
+    label: "Sương mai – núi trong sương"
+    preferred_keywords: [mountain, mist, nui, suong, cloud, may]
+    motion: zoom_in
+    zoom_amount: 0.12
+    overlay:
+      top_gradient: 0.55        # độ tối dải chuyển màu phía trên (0–1)
+      bottom_gradient: 0.65
+      tint: "#0B1A2A"
+      tint_opacity: 0.18
+    quote_box:
+      position: 0.16
+      font_size: 60
+      color: "#FFF8E7"
+      original_color: "#E8D9B5"
+      show_original: true
+      box: false
+    subtitle:
+      font_size: 62
+      color: "#FFFFFF"
+      outline_color: "#000000"
+      outline: 4
+      margin_bottom: 540
+    channel:
+      position: top
+      color: "#F3E6C4"
+    color_filter: "eq=contrast=1.04:saturation=0.92:brightness=-0.02"
+
+  mat_ho:
+    label: "Mặt hồ – sông nước tĩnh lặng"
+    preferred_keywords: [lake, river, ho, song, water, nuoc, lotus, sen]
+    motion: pan_right
+    zoom_amount: 0.14
+    overlay:
+      top_gradient: 0.60
+      bottom_gradient: 0.55
+      tint: "#2A1A08"
+      tint_opacity: 0.12
+    quote_box:
+      position: 0.12
+      font_size: 58
+      color: "#FFFDF5"
+      original_color: "#F2D59B"
+      show_original: true
+      box: false
+    subtitle:
+      font_size: 60
+      color: "#FFF7D6"
+      outline_color: "#1A1205"
+      outline: 4
+      margin_bottom: 580
+    channel:
+      position: top
+      color: "#FFF0C8"
+    color_filter: "colorbalance=rs=0.04:gs=0.01:bs=-0.04,eq=saturation=0.95"
+
+  truc_lam:
+    label: "Trúc lâm – rừng trúc thiền định"
+    preferred_keywords: [bamboo, truc, forest, rung, zen, thien, temple]
+    motion: zoom_out
+    zoom_amount: 0.10
+    overlay:
+      top_gradient: 0.35
+      bottom_gradient: 0.60
+      tint: "#06140C"
+      tint_opacity: 0.22
+    quote_box:
+      position: 0.30
+      font_size: 56
+      color: "#F5FFF5"
+      original_color: "#CFE8C8"
+      show_original: true
+      box: true                 # khung nền bán trong suốt sau câu nói
+      box_color: "#0A140E"
+      box_opacity: 0.45
+    subtitle:
+      font_size: 58
+      color: "#FFFFFF"
+      outline_color: "#06140C"
+      outline: 4
+      margin_bottom: 520
+    channel:
+      position: top
+      color: "#DDEFD5"
+    color_filter: "eq=contrast=1.06:saturation=0.85:gamma=0.98"

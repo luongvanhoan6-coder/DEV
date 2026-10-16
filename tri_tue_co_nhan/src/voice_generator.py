@@ -43,8 +43,19 @@ class VoiceResult:
 class VoiceProvider:
     name = "base"
 
-    def __init__(self, ctx: Context):
+    def __init__(self, ctx: Context, profile: str | None = None):
         self.ctx = ctx
+        self.profile = profile
+
+    def cfg(self) -> dict:
+        """Cấu hình voice.<nhà cung cấp>, ghi đè bởi hồ sơ giọng voice.profiles.<hồ sơ>.<nhà cung cấp>."""
+        merged = dict(self.ctx.cfg(f"voice.{self.name}", {}) or {})
+        if self.profile:
+            prof = (self.ctx.cfg("voice.profiles", {}) or {}).get(self.profile)
+            if prof is None:
+                raise ValueError(f"Không có hồ sơ giọng '{self.profile}' trong voice.profiles")
+            merged.update(prof.get(self.name, {}) or {})
+        return merged
 
     def is_configured(self) -> tuple[bool, str]:
         raise NotImplementedError
@@ -99,7 +110,7 @@ class EdgeTTSProvider(VoiceProvider):
         import asyncio
 
         import edge_tts
-        cfg = self.ctx.cfg("voice.edge_tts", {}) or {}
+        cfg = self.cfg()
         out = out_dir / "voice.mp3"
         timings: list[dict] = []
         timeout = float(cfg.get("timeout_sec", 90))
@@ -154,7 +165,7 @@ class GoogleCloudTTSProvider(VoiceProvider):
         if not ok:
             raise VoiceNotConfigured(msg)
         import requests
-        cfg = self.ctx.cfg("voice.google_cloud", {}) or {}
+        cfg = self.cfg()
         body = {
             "input": {"ssml": _ssml(text)},
             "voice": {"languageCode": cfg.get("language_code", "vi-VN"), "name": cfg.get("voice_name", "vi-VN-Neural2-D")},
@@ -209,14 +220,14 @@ class GeminiTTSProvider(VoiceProvider):
         if not self._key():
             return False, ("Chưa đặt GEMINI_API_KEY trong .env – lấy khóa miễn phí tại "
                            "https://aistudio.google.com/apikey (xem docs/HUONG_DAN_GIONG_DOC.md)")
-        cfg = self.ctx.cfg("voice.gemini", {}) or {}
+        cfg = self.cfg()
         return True, f"Gemini TTS: model {cfg.get('model')}, giọng {cfg.get('voice_name')}."
 
     def _request(self, text: str) -> tuple[bytes, int]:
         import time
 
         import requests
-        cfg = self.ctx.cfg("voice.gemini", {}) or {}
+        cfg = self.cfg()
         style = (cfg.get("style_prompt") or "").strip()
         prompt = f"{style}\n\n{text}" if style else text
         body = {
@@ -262,7 +273,7 @@ class GeminiTTSProvider(VoiceProvider):
         import wave
 
         from .common import ffmpeg_bin, run_cmd, word_count
-        cfg = self.ctx.cfg("voice.gemini", {}) or {}
+        cfg = self.cfg()
         pcm, rate = self._request(text)
         out = out_dir / "voice.wav"
         with wave.open(str(out), "wb") as wf:
@@ -313,7 +324,7 @@ class EspeakProvider(VoiceProvider):
         if not ok:
             raise VoiceNotConfigured(msg)
         from .common import ffmpeg_bin, run_cmd
-        cfg = self.ctx.cfg("voice.espeak", {}) or {}
+        cfg = self.cfg()
         raw = out_dir / "voice_raw.wav"
         res = run_cmd([self._bin(), "-v", str(cfg.get("voice", "vi")), "-s", str(cfg.get("speed", 125)),
                        "-p", str(cfg.get("pitch", 30)), "-g", str(cfg.get("word_gap", 2)),
@@ -340,11 +351,24 @@ PROVIDERS = {p.name: p for p in (NoVoiceProvider, ManualVoiceProvider, EdgeTTSPr
                                  GeminiTTSProvider, EspeakProvider)}
 
 
-def get_provider(ctx: Context, name: str | None = None) -> VoiceProvider:
+def get_provider(ctx: Context, name: str | None = None, profile: str | None = None) -> VoiceProvider:
     name = name or ctx.cfg("voice.provider", "none") or "none"
     if name not in PROVIDERS:
         raise ValueError(f"voice.provider không hợp lệ: {name}. Chọn một trong: {', '.join(PROVIDERS)}")
-    return PROVIDERS[name](ctx)
+    if profile and profile not in (ctx.cfg("voice.profiles", {}) or {}):
+        raise ValueError(f"Không có hồ sơ giọng '{profile}'. Có: {', '.join(list_profiles(ctx))}")
+    return PROVIDERS[name](ctx, profile)
+
+
+def list_profiles(ctx: Context) -> dict[str, str]:
+    return {k: (v or {}).get("label", k) for k, v in (ctx.cfg("voice.profiles", {}) or {}).items()}
+
+
+def default_profile(ctx: Context, seq: int = 1) -> str | None:
+    rotation = ctx.cfg("voice.profile_rotation") or []
+    if rotation:
+        return rotation[(seq - 1) % len(rotation)]
+    return ctx.cfg("voice.default_profile")
 
 
 def detect_silences(path: Path, noise_db: float = -35.0, min_dur: float = 0.2) -> list[tuple[float, float]]:
@@ -417,17 +441,22 @@ def existing_voice(out_dir: Path) -> Path | None:
 
 
 def generate_voice(ctx: Context, script: str, out_dir: Path, provider_name: str | None = None,
-                   force: bool = False) -> VoiceResult | None:
-    """Sinh giọng đọc. Trả về None nếu chưa cấu hình (không phải lỗi)."""
-    provider = get_provider(ctx, provider_name)
+                   force: bool = False, profile: str | None = None) -> VoiceResult | None:
+    """Sinh giọng đọc theo hồ sơ giọng (nam/nữ...). Trả về None nếu chưa cấu hình (không phải lỗi)."""
+    provider = get_provider(ctx, provider_name, profile)
     out_dir.mkdir(parents=True, exist_ok=True)
     if not force and provider.name != "none":
         prev = existing_voice(out_dir)
         if prev and (out_dir / "voice_meta.json").exists():
             from .common import read_json
             meta = read_json(out_dir / "voice_meta.json", {})
-            return VoiceResult(prev, meta.get("duration") or media_duration(prev) or 0.0,
-                               meta.get("provider", provider.name), meta.get("sentence_timings", []))
+            same = meta.get("provider") == provider.name and (
+                provider.name == "manual" or meta.get("profile") == profile)
+            if same:
+                return VoiceResult(prev, meta.get("duration") or media_duration(prev) or 0.0,
+                                   meta.get("provider", provider.name), meta.get("sentence_timings", []))
+            if provider.name != "manual":  # đổi giọng -> xóa tệp cũ để tạo lại
+                prev.unlink(missing_ok=True)
     try:
         result = provider.synthesize(script, out_dir)
     except VoiceNotConfigured:
@@ -436,7 +465,7 @@ def generate_voice(ctx: Context, script: str, out_dir: Path, provider_name: str 
     if not result.sentence_timings:
         result.sentence_timings = align_sentences_by_silence(result.path, script, result.duration)
         timing_source = "silence_detect" if result.sentence_timings else "proportional"
-    write_json(out_dir / "voice_meta.json", {"timing_source": timing_source,
+    write_json(out_dir / "voice_meta.json", {"timing_source": timing_source, "profile": profile,
         "provider": result.provider, "duration": round(result.duration, 3),
         "file": result.path.name, "sentence_timings": result.sentence_timings,
     })

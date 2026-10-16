@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import hashlib
 
-from . import llm_client, quote_manager
+from . import llm_client, quote_manager, voice_generator
 from .common import Context, word_count
 from .metadata_generator import (
     STATUS_LABELS, attribution_line, build_description, build_hashtags, build_title, file_stem,
@@ -108,6 +108,7 @@ def build_content(ctx: Context, q: dict, run_id: str, seq: int, template: str,
         "hashtags": hashtags,
         "background_keywords": [k.strip() for k in (q.get("background_keywords") or "").split(",") if k.strip()],
         "template": template,
+        "voice_profile": voice_generator.default_profile(ctx, seq),
         "file_stem": file_stem(date_str, seq, q["quote_id"], title),
         "content_provider": provider,
         "llm": llm_info and {k: llm_info[k] for k in ("model", "input_tokens", "output_tokens")},

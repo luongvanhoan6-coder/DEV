@@ -26,7 +26,7 @@ from src.common import (  # noqa: E402
     load_context, write_csv,
 )
 from src.platforms import PUBLISHERS  # noqa: E402
-from src.production_queue import latest_run_id, videos_for_run  # noqa: E402
+from src.production_queue import latest_run_id, set_voice_profile, videos_for_run  # noqa: E402
 
 OK, WARN, ERR = "✅", "⚠️ ", "❌"
 
@@ -168,6 +168,28 @@ def cmd_content(ctx, args):
 
 
 def cmd_voice(ctx, args):
+    if args.vcmd == "profiles":
+        for k, label in voice_generator.list_profiles(ctx).items():
+            mark = " (mặc định)" if k == ctx.cfg("voice.default_profile") else ""
+            print(f"  {k:<14} {label}{mark}")
+        return
+    if args.vcmd == "set":
+        rid = _run_id(ctx, args)
+        vids = videos_for_run(ctx, rid)
+        if args.profiles:
+            names = [p.strip() for p in args.profiles.split(",")]
+            if len(names) != len(vids):
+                sys.exit(f"{ERR} Cần {len(vids)} hồ sơ (theo thứ tự video), nhận {len(names)}")
+            pairs = list(zip([v["video_id"] for v in vids], names))
+        elif args.video_id and args.profile:
+            pairs = [(args.video_id, args.profile)]
+        else:
+            sys.exit("Dùng --video-id <ID> --profile <hồ sơ>, hoặc --profiles p1,p2,...")
+        for vid, prof in pairs:
+            changed = set_voice_profile(ctx, vid, prof)
+            print(f"{OK} {vid}: {prof}" + ("" if changed else " (giữ nguyên, không cần dựng lại)"))
+        print(f"   Tạo lại giọng + dựng lại: python main.py daily --resume {rid}")
+        return
     if args.vcmd == "test":
         out_dir = ctx.path("output", "voice_test")
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -177,7 +199,8 @@ def cmd_voice(ctx, args):
         ok, msg = provider.is_configured()
         print(f"{OK if ok else WARN} {provider.name}: {msg}")
         try:
-            res = voice_generator.generate_voice(ctx, args.text, out_dir, provider_name=provider.name, force=True)
+            res = voice_generator.generate_voice(ctx, args.text, out_dir, provider_name=provider.name, force=True,
+                                                 profile=args.profile)
         except voice_generator.VoiceGenerationError as exc:
             sys.exit(f"{ERR} {exc}")
         if not res:
@@ -376,6 +399,13 @@ def build_parser() -> argparse.ArgumentParser:
     vg.add_argument("--force", action="store_true")
     vt = vs.add_parser("test", help="Đọc thử một câu để kiểm tra cấu hình TTS")
     vt.add_argument("--provider", choices=list(voice_generator.PROVIDERS))
+    vt.add_argument("--profile", help="Hồ sơ giọng (xem: python main.py voice profiles)")
+    vs.add_parser("profiles", help="Liệt kê hồ sơ giọng")
+    vset = vs.add_parser("set", help="Đổi giọng cho video của một run")
+    vset.add_argument("--run-id")
+    vset.add_argument("--video-id")
+    vset.add_argument("--profile")
+    vset.add_argument("--profiles", help="Danh sách theo thứ tự video, vd: nam_tram,nu_tram_am,nu_tram_am")
     vt.add_argument("--text", default="Người biết đủ là người giàu. Thắng người là có sức, thắng mình mới là mạnh.")
     v.set_defaults(func=cmd_voice)
 

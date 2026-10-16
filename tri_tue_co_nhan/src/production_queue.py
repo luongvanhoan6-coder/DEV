@@ -91,3 +91,22 @@ def log_publishing(ctx: Context, video_id: str, quote_id: str, platform: str, ac
 
 def load_publishing_log(ctx: Context) -> list[dict]:
     return read_csv(ctx.path("data", "publishing_log.csv"))
+
+
+def set_voice_profile(ctx: Context, video_id: str, profile: str) -> bool:
+    """Đổi giọng cho một video và đưa về trạng thái cần tạo lại giọng/phụ đề/video."""
+    from .voice_generator import list_profiles
+    if profile not in list_profiles(ctx):
+        raise ValueError(f"Không có hồ sơ giọng '{profile}'. Có: {', '.join(list_profiles(ctx))}")
+    video = get_video(ctx, video_id)
+    if not video:
+        raise ValueError(f"Không tìm thấy video {video_id}")
+    if status_at_least(video["status"], "APPROVED"):
+        raise ValueError(f"{video_id} đã được duyệt/đóng gói – hãy 'reject' trước khi đổi giọng.")
+    content = load_content(ctx, video)
+    if content.get("voice_profile") == profile:
+        return False  # không đổi -> không cần dựng lại
+    content["voice_profile"] = profile
+    save_content(ctx, content)
+    update_status(ctx, video_id, "DRAFT", error="")
+    return True

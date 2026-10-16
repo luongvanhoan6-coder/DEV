@@ -107,8 +107,10 @@ def run_voice_and_subtitles(ctx: Context, manifest: dict, force: bool = False) -
             content = load_content(ctx, v)
             d = draft_dir(ctx, v["run_id"], v["video_id"])
             try:
-                voice = voice_generator.generate_voice(ctx, content["voice_script"], d, force=force)
-            except voice_generator.VoiceGenerationError as exc:
+                profile = content.get("voice_profile") or voice_generator.default_profile(ctx, int(v.get("seq") or 1))
+                vr["voice_profile"] = profile
+                voice = voice_generator.generate_voice(ctx, content["voice_script"], d, force=force, profile=profile)
+            except (voice_generator.VoiceGenerationError, ValueError) as exc:
                 vr["errors"].append(f"Giọng đọc: {exc}")
                 rec["errors"].append(f"{v['video_id']}: {exc}")
                 update_status(ctx, v["video_id"], "DRAFT", error=f"Giọng đọc: {exc}")

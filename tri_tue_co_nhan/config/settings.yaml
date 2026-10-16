@@ -41,6 +41,26 @@ voice:
   # gemini      : Gemini API – Google AI Studio (có hạn mức miễn phí, cần GEMINI_API_KEY)
   # espeak      : eSpeak-NG offline – giọng máy, chỉ để THỬ quy trình (không nên đăng)
   provider: gemini
+  # Hồ sơ giọng: mỗi video có thể dùng giọng khác nhau (python main.py voice set ...).
+  default_profile: nam_tram
+  profile_rotation: []          # ví dụ [nam_tram, nu_tram_am] để xen kẽ tự động theo thứ tự video
+  profiles:
+    nam_tram:
+      label: "Nam trầm – phong cách phát thanh viên"
+      gemini:
+        voice_name: Charon
+        style_prompt: "Đọc bằng tiếng Việt như một nam phát thanh viên đài phát thanh: giọng trầm ấm, rõ ràng, liền mạch, nhịp đều, chậm rãi, ngắt nghỉ tự nhiên ở dấu câu:"
+      edge_tts: {voice: vi-VN-NamMinhNeural, rate: "-10%", pitch: "-4Hz"}
+      google_cloud: {voice_name: vi-VN-Neural2-D, pitch: -2.0}
+      espeak: {voice: vi, pitch: 52}           # ~108 Hz (đã đo)
+    nu_tram_am:
+      label: "Nữ trầm ấm – phong cách phát thanh viên"
+      gemini:
+        voice_name: Sulafat
+        style_prompt: "Đọc bằng tiếng Việt như một nữ phát thanh viên đài phát thanh: giọng nữ trầm ấm, dịu dàng, liền mạch, rõ ràng, nhịp đều, chậm rãi, ngắt nghỉ tự nhiên ở dấu câu:"
+      edge_tts: {voice: vi-VN-HoaiMyNeural, rate: "-8%", pitch: "-6Hz"}
+      google_cloud: {voice_name: vi-VN-Neural2-A, pitch: -3.0}
+      espeak: {voice: vi+linda, pitch: 42}     # ~182 Hz (đã đo)
   edge_tts:
     voice: vi-VN-NamMinhNeural     # giọng nam trầm; giọng nữ: vi-VN-HoaiMyNeural
     rate: "-12%"
@@ -56,10 +76,10 @@ voice:
     max_retries: 3
   espeak:
     voice: vi
-    speed: 125        # từ/phút
     pitch: 30         # 0–99, thấp = trầm
-    word_gap: 2
-    post_filter: "highpass=f=80,lowpass=f=5000,aecho=0.8:0.6:45:0.12,loudnorm=I=-16:TP=-1.5"
+    word_gap: 0       # 0 = đọc liền mạch hơn
+    speed: 132
+    post_filter: "highpass=f=80,lowpass=f=5000,acompressor=threshold=-20dB:ratio=3:attack=10:release=200,aecho=0.8:0.6:45:0.12,loudnorm=I=-16:TP=-1.5"
   google_cloud:
     language_code: vi-VN
     voice_name: vi-VN-Neural2-D

@@ -47,6 +47,8 @@ Cách nhanh nhất nếu bạn có tài khoản Google – **Gemini API (miễn 
 2. Điền vào `.env`: `GEMINI_API_KEY=...`
 3. Trong `config/settings.yaml`: `voice.provider: gemini`
 
+Giọng nam/nữ cho từng video: `python main.py voice set --run-id <RUN_ID> --profiles nam_tram,nu_tram_am,nu_tram_am` (xem hướng dẫn giọng đọc).
+
 Các lựa chọn khác (tự thu âm / Google Cloud TTS / edge-tts): [docs/HUONG_DAN_GIONG_DOC.md](docs/HUONG_DAN_GIONG_DOC.md). Kiểm tra:
 
 ```bash

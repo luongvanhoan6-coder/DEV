@@ -173,3 +173,22 @@ def test_voice_failure_is_recorded_not_faked(project, monkeypatch):
         assert not list(d.glob("voice.*"))       # không có âm thanh giả
     step = next(s for s in m["steps"] if s["name"] == "voice_subtitles")
     assert not step["ok"] and len(step["errors"]) == 2
+
+
+def test_set_voice_profile_resets_video(project, monkeypatch):
+    from src.production_queue import set_voice_profile, load_content
+    monkeypatch.setattr(video_renderer, "render_video", _fake_render)
+    m = pipeline.load_manifest(project, "RUN_PROF")
+    pipeline.run_content(project, m, 2)
+    pipeline.run_voice_and_subtitles(project, m)
+    pipeline.run_render(project, m)
+    v2 = videos_for_run(project, "RUN_PROF")[1]
+    assert load_content(project, v2)["voice_profile"] == "nam_tram"
+    assert set_voice_profile(project, v2["video_id"], "nam_tram") is False   # không đổi
+    assert videos_for_run(project, "RUN_PROF")[1]["status"] == "RENDERED"
+    assert set_voice_profile(project, v2["video_id"], "nu_tram_am") is True
+    vids = videos_for_run(project, "RUN_PROF")
+    assert vids[0]["status"] == "RENDERED" and vids[1]["status"] == "DRAFT"
+    assert load_content(project, vids[1])["voice_profile"] == "nu_tram_am"
+    with pytest.raises(ValueError):
+        set_voice_profile(project, v2["video_id"], "khong_co")

@@ -187,3 +187,40 @@ def test_espeak_provider_if_installed(project, tmp_path):
     res = vg.generate_voice(project, "Người biết đủ là người giàu. Thắng mình mới là mạnh.", tmp_path / "e",
                             provider_name="espeak")
     assert res and res.duration > 2 and res.path.name == "voice.wav"
+
+
+def test_voice_profiles_override_provider_config(project):
+    male = vg.get_provider(project, "gemini", "nam_tram").cfg()
+    female = vg.get_provider(project, "gemini", "nu_tram_am").cfg()
+    assert male["voice_name"] != female["voice_name"]
+    assert "phát thanh viên" in female["style_prompt"] and "nữ" in female["style_prompt"]
+    assert female["model"] == project.cfg("voice.gemini.model")       # khóa không ghi đè vẫn giữ
+    assert vg.get_provider(project, "espeak", "nu_tram_am").cfg()["voice"] == "vi+linda"
+    try:
+        vg.get_provider(project, "gemini", "khong_co")
+    except ValueError:
+        pass
+    else:
+        raise AssertionError
+
+
+def test_default_profile_rotation(project):
+    assert vg.default_profile(project, 3) == "nam_tram"
+    project.settings["voice"]["profile_rotation"] = ["nam_tram", "nu_tram_am"]
+    assert [vg.default_profile(project, i) for i in (1, 2, 3)] == ["nam_tram", "nu_tram_am", "nam_tram"]
+
+
+@requires_ffmpeg
+def test_changing_profile_regenerates_voice(project, tmp_path):
+    if not vg.get_provider(project, "espeak").is_configured()[0]:
+        import pytest
+        pytest.skip("espeak-ng chưa cài")
+    d = tmp_path / "p"
+    text = "Người biết đủ là người giàu. Thắng mình mới là mạnh."
+    a = vg.generate_voice(project, text, d, provider_name="espeak", profile="nam_tram")
+    size_a = a.path.stat().st_size
+    same = vg.generate_voice(project, text, d, provider_name="espeak", profile="nam_tram")
+    assert same.path.stat().st_size == size_a                     # dùng lại bản cũ
+    b = vg.generate_voice(project, text, d, provider_name="espeak", profile="nu_tram_am")
+    from src.common import read_json
+    assert read_json(d / "voice_meta.json")["profile"] == "nu_tram_am" and b.path.exists()

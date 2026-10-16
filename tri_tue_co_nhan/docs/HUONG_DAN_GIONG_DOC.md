@@ -89,6 +89,27 @@ Lưu ý khi dùng Gemini TTS:
 Tạo lớp mới trong `src/voice_generator.py` kế thừa `VoiceProvider`, cài đặt `is_configured()` và
 `synthesize(text, out_dir) -> VoiceResult`, rồi thêm vào `PROVIDERS`. Đọc API key từ biến môi trường.
 
+## Giọng nam / nữ cho từng video (hồ sơ giọng)
+
+Có sẵn 2 hồ sơ trong `config/settings.yaml → voice.profiles`, phong cách phát thanh viên:
+
+| Hồ sơ | Gemini | edge-tts | Google Cloud | eSpeak (thử nghiệm) |
+|---|---|---|---|---|
+| `nam_tram` – Nam trầm (mặc định) | Charon | NamMinh | Neural2-D | ~110 Hz |
+| `nu_tram_am` – Nữ trầm ấm | Sulafat | HoaiMy | Neural2-A | ~185 Hz |
+
+```bash
+python main.py voice profiles                                  # xem danh sách
+python main.py voice test --profile nu_tram_am                 # nghe thử
+python main.py voice set --run-id <RUN_ID> --profiles nam_tram,nu_tram_am,nu_tram_am   # theo thứ tự video
+python main.py voice set --run-id <RUN_ID> --video-id <ID> --profile nu_tram_am      # một video
+python main.py daily --resume <RUN_ID>                         # tạo lại giọng + dựng lại video đã đổi
+```
+
+Xen kẽ tự động cho mọi lô mới: `voice.profile_rotation: [nam_tram, nu_tram_am]`.
+Muốn thêm giọng (ví dụ nam trung niên `Gacrux`, nữ dịu dàng `Vindemiatrix`): sao chép một hồ sơ, đổi tên và
+`voice_name`, chỉnh `style_prompt` (Gemini đọc theo mô tả này). Video đã duyệt phải `reject` trước khi đổi giọng.
+
 ## Căn phụ đề theo giọng đọc
 
 - edge-tts trả về mốc thời gian từng câu → dùng trực tiếp.

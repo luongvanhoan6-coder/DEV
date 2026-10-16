@@ -221,6 +221,8 @@ def cmd_quality(ctx, args):
 
 
 def cmd_daily(ctx, args):
+    if args.voice_provider:
+        ctx.settings["voice"]["provider"] = args.voice_provider
     manifest = pipeline.run_daily(ctx, count=args.count, resume=args.resume, force=args.force,
                                   allow_reuse=args.allow_reuse)
     reporting.update_feedback_loop(ctx, manifest)
@@ -395,6 +397,8 @@ def build_parser() -> argparse.ArgumentParser:
     d.add_argument("--resume", metavar="RUN_ID", help="Chạy tiếp một run bị lỗi, không tạo trùng")
     d.add_argument("--force", action="store_true")
     d.add_argument("--allow-reuse", action="store_true")
+    d.add_argument("--voice-provider", choices=list(voice_generator.PROVIDERS),
+                   help="Dùng tạm nhà cung cấp giọng đọc khác cho lần chạy này")
     d.set_defaults(func=cmd_daily)
 
     a = sub.add_parser("approve", help="Duyệt video đã qua QC")

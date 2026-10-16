@@ -153,3 +153,37 @@ def test_gemini_errors_and_abnormal_duration(project, tmp_path, monkeypatch):
     else:
         raise AssertionError
     assert not (tmp_path / "e2" / "voice.wav").exists()
+
+
+def test_no_orphan_short_subtitle_chunk():
+    chunks = sg.split_into_chunks("như tảng đá kiên cố không lay động trước gió, người trí không dao động "
+                                  "trước lời khen hay tiếng chê.", 26, 2)
+    assert all(len(c) >= 16 for c, _ in chunks) and all(len(c) <= 60 for c, _ in chunks)
+    assert " ".join(c for c, _ in chunks).endswith("tiếng chê.")
+
+
+@requires_ffmpeg
+def test_align_sentences_by_real_silences(tmp_path):
+    # 3 "câu" dài 2s / 3s / 1.5s, cách nhau bởi khoảng lặng 0.5s
+    wav = tmp_path / "v.wav"
+    subprocess.run([ffmpeg_bin(), "-y", "-loglevel", "error", "-f", "lavfi", "-i",
+                    "sine=f=220:d=7.5:sample_rate=48000",
+                    "-af", "volume='if(between(t,2,2.5)+between(t,5.5,6),0,1)':eval=frame", str(wav)], check=True)
+    text = "Câu thứ nhất khá ngắn. Câu thứ hai dài hơn câu thứ nhất một chút nữa. Câu ba."
+    t = vg.align_sentences_by_silence(wav, text, 7.5)
+    assert len(t) == 3
+    assert abs(t[0]["end"] - 2.0) < 0.1 and abs(t[1]["start"] - 2.5) < 0.1
+    assert abs(t[1]["end"] - 5.5) < 0.1 and abs(t[2]["start"] - 6.0) < 0.1
+    # không đủ khoảng lặng -> trả về rỗng để dùng cách chia theo tỉ lệ
+    assert vg.align_sentences_by_silence(wav, "Một. Hai. Ba. Bốn. Năm.", 7.5) == []
+
+
+@requires_ffmpeg
+def test_espeak_provider_if_installed(project, tmp_path):
+    p = vg.get_provider(project, "espeak")
+    if not p.is_configured()[0]:
+        import pytest
+        pytest.skip("espeak-ng chưa cài")
+    res = vg.generate_voice(project, "Người biết đủ là người giàu. Thắng mình mới là mạnh.", tmp_path / "e",
+                            provider_name="espeak")
+    assert res and res.duration > 2 and res.path.name == "voice.wav"

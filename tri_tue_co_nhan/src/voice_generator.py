@@ -5,6 +5,7 @@ Nhà cung cấp hỗ trợ (voice.provider trong config/settings.yaml):
   manual       – bạn tự thu âm, đặt voice.mp3 / voice.wav / voice.m4a vào thư mục nháp của video.
   edge_tts     – Microsoft Edge Read-Aloud qua gói `edge-tts` (miễn phí, KHÔNG phải API chính thức).
   google_cloud – Google Cloud Text-to-Speech REST API (chính thức; cần GOOGLE_TTS_API_KEY).
+  espeak       – eSpeak-NG offline (giọng máy, chỉ để thử nghiệm).
   gemini       – Gemini API (Google AI Studio) – mô hình TTS, có hạn mức miễn phí; cần GEMINI_API_KEY.
 
 Hệ thống không bao giờ tạo tệp âm thanh giả để thay cho giọng đọc.
@@ -290,8 +291,53 @@ class GeminiTTSProvider(VoiceProvider):
         return VoiceResult(out, dur, self.name)
 
 
+class EspeakProvider(VoiceProvider):
+    """eSpeak-NG – chạy offline, miễn phí, giữ đúng 6 thanh điệu nhưng giọng máy (robot).
+
+    Chỉ nên dùng để thử quy trình (căn phụ đề, trộn nhạc). Không khuyến nghị đăng công khai.
+    """
+    name = "espeak"
+
+    @staticmethod
+    def _bin() -> str | None:
+        import shutil
+        return shutil.which("espeak-ng") or shutil.which("espeak")
+
+    def is_configured(self):
+        if not self._bin():
+            return False, "Chưa cài espeak-ng (Ubuntu: sudo apt install espeak-ng; Windows/macOS: xem espeak-ng trên GitHub)"
+        return True, "eSpeak-NG offline – giọng máy, CHỈ để thử nghiệm quy trình."
+
+    def synthesize(self, text, out_dir):
+        ok, msg = self.is_configured()
+        if not ok:
+            raise VoiceNotConfigured(msg)
+        from .common import ffmpeg_bin, run_cmd
+        cfg = self.ctx.cfg("voice.espeak", {}) or {}
+        raw = out_dir / "voice_raw.wav"
+        res = run_cmd([self._bin(), "-v", str(cfg.get("voice", "vi")), "-s", str(cfg.get("speed", 125)),
+                       "-p", str(cfg.get("pitch", 30)), "-g", str(cfg.get("word_gap", 2)),
+                       "-w", str(raw), text], timeout=120)
+        if res.returncode != 0 or not raw.exists():
+            raise VoiceGenerationError(f"espeak-ng lỗi: {res.stderr.strip()[:200]}")
+        out = out_dir / "voice.wav"
+        post = cfg.get("post_filter")
+        if post and ffmpeg_bin():
+            res = run_cmd([ffmpeg_bin(), "-y", "-loglevel", "error", "-i", str(raw), "-af", post,
+                           "-ar", "48000", str(out)], timeout=120)
+            if res.returncode != 0:
+                raise VoiceGenerationError(f"Hậu xử lý âm thanh lỗi: {res.stderr.strip()[:200]}")
+            raw.unlink(missing_ok=True)
+        else:
+            raw.replace(out)
+        dur = media_duration(out)
+        if not dur or dur < 1.0:
+            raise VoiceGenerationError("espeak-ng trả về âm thanh rỗng")
+        return VoiceResult(out, dur, self.name)
+
+
 PROVIDERS = {p.name: p for p in (NoVoiceProvider, ManualVoiceProvider, EdgeTTSProvider, GoogleCloudTTSProvider,
-                                 GeminiTTSProvider)}
+                                 GeminiTTSProvider, EspeakProvider)}
 
 
 def get_provider(ctx: Context, name: str | None = None) -> VoiceProvider:
@@ -299,6 +345,68 @@ def get_provider(ctx: Context, name: str | None = None) -> VoiceProvider:
     if name not in PROVIDERS:
         raise ValueError(f"voice.provider không hợp lệ: {name}. Chọn một trong: {', '.join(PROVIDERS)}")
     return PROVIDERS[name](ctx)
+
+
+def detect_silences(path: Path, noise_db: float = -35.0, min_dur: float = 0.2) -> list[tuple[float, float]]:
+    """Trả về các khoảng lặng (bắt đầu, kết thúc) trong tệp âm thanh, dùng FFmpeg silencedetect."""
+    from .common import ffmpeg_bin, run_cmd
+    if not ffmpeg_bin():
+        return []
+    res = run_cmd([ffmpeg_bin(), "-hide_banner", "-i", str(path), "-af",
+                   f"silencedetect=n={noise_db}dB:d={min_dur}", "-f", "null", "-"], timeout=120)
+    starts = [float(x) for x in re.findall(r"silence_start: (-?[\d.]+)", res.stderr)]
+    ends = [float(x) for x in re.findall(r"silence_end: ([\d.]+)", res.stderr)]
+    out = []
+    for i, st in enumerate(starts):
+        out.append((max(0.0, st), ends[i] if i < len(ends) else media_duration(path) or st))
+    return out
+
+
+def align_sentences_by_silence(path: Path, text: str, duration: float) -> list[dict]:
+    """Ước lượng mốc thời gian từng câu từ khoảng lặng thật trong giọng đọc.
+
+    Trả về [] nếu không đủ khoảng lặng (khi đó phụ đề chia theo tỉ lệ ký tự).
+    """
+    from .subtitle_generator import split_sentences
+    sentences = split_sentences(text)
+    n = len(sentences)
+    if n == 0:
+        return []
+    sil = detect_silences(path)
+    speech_start, speech_end = 0.0, duration
+    if sil and sil[0][0] <= 0.05:
+        speech_start = sil[0][1]
+        sil = sil[1:]
+    if sil and sil[-1][1] >= duration - 0.05:
+        speech_end = sil[-1][0]
+        sil = sil[:-1]
+    if n == 1:
+        return [{"start": speech_start, "end": speech_end, "text": sentences[0]}]
+    if len(sil) < n - 1:
+        return []
+    total_chars = sum(len(s) for s in sentences)
+    span = speech_end - speech_start
+    chosen: list[tuple[float, float]] = []
+    cum, idx = 0, 0
+    for k in range(n - 1):
+        cum += len(sentences[k])
+        expected = speech_start + span * cum / total_chars
+        remaining_needed = (n - 1) - k - 1
+        candidates = sil[idx: len(sil) - remaining_needed]
+        if not candidates:
+            return []
+        best = min(range(len(candidates)),
+                   key=lambda j: abs((candidates[j][0] + candidates[j][1]) / 2 - expected)
+                   - 0.5 * (candidates[j][1] - candidates[j][0]))
+        chosen.append(candidates[best])
+        idx += best + 1
+    timings, start = [], speech_start
+    for i, s in enumerate(sentences):
+        end = chosen[i][0] if i < n - 1 else speech_end
+        timings.append({"start": round(start, 3), "end": round(max(end, start + 0.3), 3), "text": s})
+        if i < n - 1:
+            start = chosen[i][1]
+    return timings
 
 
 def existing_voice(out_dir: Path) -> Path | None:
@@ -324,7 +432,11 @@ def generate_voice(ctx: Context, script: str, out_dir: Path, provider_name: str 
         result = provider.synthesize(script, out_dir)
     except VoiceNotConfigured:
         return None
-    write_json(out_dir / "voice_meta.json", {
+    timing_source = "tts" if result.sentence_timings else None
+    if not result.sentence_timings:
+        result.sentence_timings = align_sentences_by_silence(result.path, script, result.duration)
+        timing_source = "silence_detect" if result.sentence_timings else "proportional"
+    write_json(out_dir / "voice_meta.json", {"timing_source": timing_source,
         "provider": result.provider, "duration": round(result.duration, 3),
         "file": result.path.name, "sentence_timings": result.sentence_timings,
     })

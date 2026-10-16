@@ -4,7 +4,7 @@ Hệ thống **không giả định** máy tính có sẵn giọng đọc tiến
 Khi chưa cấu hình, mỗi video vẫn có `voice_script.txt` + phụ đề SRT, nhưng video sẽ **không được duyệt**
 (trừ khi bạn chủ động dùng `--allow-no-voice`).
 
-Chọn nhà cung cấp (`none`, `manual`, `gemini`, `google_cloud`, `edge_tts`) trong `config/settings.yaml` → `voice.provider`, rồi kiểm tra bằng:
+Chọn nhà cung cấp (`gemini` – mặc định, `manual`, `google_cloud`, `edge_tts`, `espeak`, `none`) trong `config/settings.yaml` → `voice.provider`, rồi kiểm tra bằng:
 
 ```bash
 python main.py voice test                 # đọc thử 1 câu, tạo output/voice_test/voice.mp3
@@ -21,7 +21,8 @@ Nghe thử tệp tạo ra trước khi sản xuất hàng loạt.
 | `google_cloud` – Google Cloud TTS | Có hạn mức miễn phí hằng tháng, vượt thì tính phí | Tốt (giọng Neural2/WaveNet `vi-VN`) | API chính thức | Cần tài khoản Google Cloud có thanh toán |
 | `gemini` – Gemini API (Google AI Studio) | Có hạn mức miễn phí (giới hạn lượt/phút, lượt/ngày); vượt thì tính phí theo bảng giá Gemini API | Tự nhiên, điều khiển phong cách bằng lời mô tả | API chính thức | Chỉ cần tài khoản Google + API key |
 | `edge_tts` – Microsoft Edge Read-Aloud | 0 đ | Tốt (`vi-VN-NamMinhNeural`, `vi-VN-HoaiMyNeural`) | **Không chính thức** – có thể ngừng bất cứ lúc nào; tự đánh giá điều khoản sử dụng trước khi dùng thương mại | `pip install edge-tts` |
-| `none` | 0 đ | – | – | Mặc định |
+| `espeak` – eSpeak-NG (offline) | 0 đ | Giọng máy (robot), đúng 6 thanh điệu | Mã nguồn mở; **chỉ để thử quy trình** | `sudo apt install espeak-ng` |
+| `none` | 0 đ | – | – | Không có giọng đọc |
 
 Gợi ý giọng phù hợp phong cách kênh: trầm ấm, chậm vừa (tốc độ 0.85–0.9 hoặc `-10%` đến `-15%`).
 
@@ -87,3 +88,24 @@ Lưu ý khi dùng Gemini TTS:
 
 Tạo lớp mới trong `src/voice_generator.py` kế thừa `VoiceProvider`, cài đặt `is_configured()` và
 `synthesize(text, out_dir) -> VoiceResult`, rồi thêm vào `PROVIDERS`. Đọc API key từ biến môi trường.
+
+## Căn phụ đề theo giọng đọc
+
+- edge-tts trả về mốc thời gian từng câu → dùng trực tiếp.
+- Các nhà cung cấp khác (Gemini, Google Cloud, tự thu âm, eSpeak): hệ thống **dò khoảng lặng thật** trong tệp giọng
+  đọc (FFmpeg `silencedetect`) để xác định ranh giới từng câu; trong mỗi câu, phụ đề chia theo số ký tự.
+- Nếu không tìm đủ khoảng lặng, phụ đề chia theo tỉ lệ ký tự trên toàn bộ giọng đọc.
+  Nguồn căn được ghi trong `voice_meta.json` → `timing_source`.
+
+## Thử nhanh không cần khóa API
+
+```bash
+sudo apt install espeak-ng          # Ubuntu/Debian
+python main.py daily --count 3 --voice-provider espeak
+```
+
+Giọng eSpeak nghe như robot – chỉ dùng để kiểm tra phụ đề, nhạc nền, bố cục. Đăng thật hãy dùng Gemini/Google
+Cloud/tự thu âm.
+
+Đã thử và **loại**: mô hình Piper `vi-vivos-x-low` – với phiên bản espeak-ng hiện tại, mô hình mất thanh hỏi, ngã,
+nặng, huyền ("ma", "mả", "mã", "mạ" đọc giống nhau) và giấy phép dữ liệu là CC BY-NC-SA (phi thương mại).

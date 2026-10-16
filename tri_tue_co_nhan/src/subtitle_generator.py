@@ -92,6 +92,11 @@ def split_into_chunks(text: str, max_chars_per_line: int = 26, max_lines: int = 
                         buf = cand
         if buf:
             pieces.append(buf)
+        # Tránh đoạn cuối quá ngắn (vd. chỉ còn một chữ): gộp với đoạn trước rồi chia đôi cân bằng.
+        if len(pieces) > 1 and len(pieces[-1]) < 16:
+            words = f"{pieces[-2]} {pieces[-1]}".split()
+            best = min(range(1, len(words)), key=lambda i: abs(len(" ".join(words[:i])) - len(" ".join(words[i:]))))
+            pieces[-2:] = [" ".join(words[:best]), " ".join(words[best:])]
         for j, p in enumerate(pieces):
             chunks.append((p, j == len(pieces) - 1))
     return chunks
@@ -255,4 +260,4 @@ def generate_subtitles(ctx: Context, content: dict, out_dir: Path, speech_durati
     ass_path.write_text(to_ass(cues, style, font_name, int(ctx.cfg("video.width", 1080)),
                                int(ctx.cfg("video.height", 1920))), encoding="utf-8")
     return {"srt": srt_path, "ass": ass_path, "cues": len(cues),
-            "timing_source": "tts_sentence_boundaries" if sentence_timings and len(sentence_timings) == len(split_sentences(content["voice_script"])) else "proportional"}
+            "timing_source": "sentence_boundaries" if sentence_timings and len(sentence_timings) == len(split_sentences(content["voice_script"])) else "proportional"}

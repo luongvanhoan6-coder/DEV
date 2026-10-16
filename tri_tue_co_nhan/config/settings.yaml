@@ -39,6 +39,7 @@ voice:
   # edge_tts    : giọng Microsoft Edge Read-Aloud (miễn phí, KHÔNG chính thức – xem docs/HUONG_DAN_GIONG_DOC.md)
   # google_cloud: Google Cloud Text-to-Speech (chính thức, có hạn mức miễn phí, cần GOOGLE_TTS_API_KEY)
   # gemini      : Gemini API – Google AI Studio (có hạn mức miễn phí, cần GEMINI_API_KEY)
+  # espeak      : eSpeak-NG offline – giọng máy, chỉ để THỬ quy trình (không nên đăng)
   provider: gemini
   edge_tts:
     voice: vi-VN-NamMinhNeural     # giọng nam trầm; giọng nữ: vi-VN-HoaiMyNeural
@@ -53,6 +54,12 @@ voice:
     tempo: 1.0                            # <1 chậm hơn, >1 nhanh hơn (FFmpeg atempo, giữ cao độ)
     timeout_sec: 120
     max_retries: 3
+  espeak:
+    voice: vi
+    speed: 125        # từ/phút
+    pitch: 30         # 0–99, thấp = trầm
+    word_gap: 2
+    post_filter: "highpass=f=80,lowpass=f=5000,aecho=0.8:0.6:45:0.12,loudnorm=I=-16:TP=-1.5"
   google_cloud:
     language_code: vi-VN
     voice_name: vi-VN-Neural2-D
